@@ -1522,6 +1522,9 @@ export default class Player extends PathingEntity {
         }
         if (!super.processMovement(running)) {
             // if the player does not process movement.
+            // this is necessary for when a player clicks a loc
+            // then clicks the ground or something, the player
+            // is supposed to turn to the loc
             if (this.faceX != -1) {
                 this.mask |= Player.FACE_COORD;
                 this.alreadyFacedCoord = true;
@@ -1729,8 +1732,7 @@ export default class Player extends PathingEntity {
         if (target instanceof Player || target instanceof Npc) {
             return ReachStrategy.reached(World.collisionFlags, this.level, this.x, this.z, target.x, target.z, target.width, target.length, this.width, 0, -2);
         } else if (target instanceof Loc) {
-            const type = LocType.get(target.type);
-            return ReachStrategy.reached(World.collisionFlags, this.level, this.x, this.z, target.x, target.z, type.width, type.length, this.width, target.rotation, target.shape);
+            return ReachStrategy.reached(World.collisionFlags, this.level, this.x, this.z, target.x, target.z, target.width, target.length, this.width, target.rotation, target.shape);
         }
         return ReachStrategy.reached(World.collisionFlags, this.level, this.x, this.z, target.x, target.z, 1, 1, this.width, 0, -2);
     }
@@ -1944,8 +1946,13 @@ export default class Player extends PathingEntity {
                 this.resetInteraction();
             }
 
-            if (interacted && !interaction.apRangeCalled && this.interaction === interaction) {
-                this.resetInteraction();
+            if (interacted && !interaction.apRangeCalled) {
+                if (this.faceX != -1) {
+                    this.mask |= Player.FACE_COORD;
+                }
+                if (this.interaction === interaction) {
+                    this.resetInteraction();
+                }
             }
         }
     }
