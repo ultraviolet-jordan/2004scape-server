@@ -1696,7 +1696,13 @@ export default class Player extends PathingEntity {
             }
         }
 
-        this.updateMovement();
+        if (interacted) {
+            this.clearWalkSteps();
+            this.walkDir = -1;
+            this.runDir = -1;
+        } else {
+            this.updateMovement();
+        }
         const moved = this.lastX !== this.x || this.lastZ !== this.z;
         if (moved) {
             this.lastMovement = World.currentTick + 1;

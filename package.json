@@ -8,7 +8,7 @@
     "#rsmod/*": "./src/rsmod/*"
   },
   "scripts": {
-    "start": "nodemon src/lostcity/app.ts",
+    "start": "nodemon src/lostcity/web.ts",
     "dev": "concurrently \"npm start\" \"npm run server:watch\"",
     "web": "ts-node src/lostcity/web.ts",
     "client:pack": "ts-node src/lostcity/tools/client/all/pack.ts",

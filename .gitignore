@@ -37,3 +37,6 @@ coverage/
 
 # intellij
 .idea/
+
+build/
+.gradle/

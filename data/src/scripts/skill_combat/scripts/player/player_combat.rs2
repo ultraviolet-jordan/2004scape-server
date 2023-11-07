@@ -4,6 +4,7 @@ if (%damagetype = ^ranged) {
     return;
 }
 ~player_melee_attack;
+
 [apnpc2,_] 
 mes(tostring(npc_range(coord)));
 mes(tostring(%attackrange));
