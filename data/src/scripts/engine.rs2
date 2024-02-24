@@ -220,6 +220,7 @@
 [command,loc_coord]()(coord)
 [command,loc_del](int $duration)
 [command,loc_find](coord $coord, loc $loc)(boolean)
+[command,.loc_find](coord $coord, loc $loc)(boolean)
 [command,loc_findallzone](coord $coord)
 [command,loc_findnext]()(boolean)
 [command,loc_param]/*(param $param)(dynamic)*/

@@ -1,0 +1,22 @@
+[oploc1,witchaven_north_door]
+mes("north door");
+if(.loc_find(^crest_north_lever_coord,witchaven_north_lever_up) = true){
+  ~open_and_close_door(loc_1535, ~check_axis(coord, loc_coord, loc_angle), false);
+} else {
+  mes("The door is locked.");
+}
+
+[oploc1,witchaven_north_lever_down]
+facesquare(movecoord(coord, 0, 1, 0));      //Face the direction of the lever
+anim(human_leverdown, 0);                   //Queue leverdown player animation
+sound_synth(lever, 0, 0);                   //Queue lever sound
+loc_change(witchaven_north_lever_up, 20);                   //Change lever to opposite lever direction (in this case up)
+mes(~coord_tostring(loc_coord));
+
+[oploc1,witchaven_north_lever_up]
+mes("north lever is up");
+facesquare(movecoord(coord, 0, 1, 0));      //Face the direction of the lever
+anim(human_leverdown, 0);                   //Queue leverdown player animation
+sound_synth(lever, 0, 0);                   //Queue lever sound
+loc_change(witchaven_north_lever_down, 20);                   //need to make this perma
+mes(~coord_tostring(loc_coord));

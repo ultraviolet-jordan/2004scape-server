@@ -13861,14 +13861,14 @@ mapscene=44
 model=model_loc_771
 mapscene=45
 
-[loc_2421]
+[witchaven_north_lever_down]
 name=Lever
 desc=This lever is down.
 model=model_loc_33
 active=yes
 op1=Pull
 
-[loc_2422]
+[witchaven_north_lever_up]
 name=Lever
 desc=This lever is up.
 model=model_loc_34
@@ -13947,7 +13947,7 @@ recol1d=45
 recol2s=24
 recol2d=4762
 
-[loc_2431]
+[witchaven_north_door]
 name=Door
 desc=This door is closed by an unknown mechanism.
 model=model_loc_3
