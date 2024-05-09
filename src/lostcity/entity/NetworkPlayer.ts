@@ -1053,7 +1053,6 @@ export class NetworkPlayer extends Player {
         // process any pathfinder requests now
         if (pathfindRequest && pathfindX !== -1 && pathfindZ !== -1) {
             if (this.delayed()) {
-                this.pathfinding = false;
                 this.unsetMapFlag();
                 return;
             }
