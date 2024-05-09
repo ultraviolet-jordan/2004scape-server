@@ -15,7 +15,7 @@ import Loc from '#lostcity/entity/Loc.js';
 import Obj from '#lostcity/entity/Obj.js';
 import { Position } from '#lostcity/entity/Position.js';
 
-import ClientProt from '#lostcity/server/ClientProt.js';
+import ClientProt, {ClientProtDecoders} from '#lostcity/server/ClientProt.js';
 import ServerProt from '#lostcity/server/ServerProt.js';
 
 import World from '#lostcity/engine/World.js';
@@ -66,22 +66,16 @@ export class NetworkPlayer extends Player {
             } else if (length == -2) {
                 length = (this.client.in[offset++] << 8) | this.client.in[offset++];
             }
-            const data = new Packet(this.client.in.slice(offset, offset + length));
+            const buf = new Packet(this.client.in.slice(offset, offset + length));
             offset += length;
 
+            const decoded: any[] = ClientProtDecoders[packetType.id](packetType, buf);
+
             if (packetType === ClientProt.REBUILD_GETMAPS) {
-                const requested = [];
+                const maps: {type: number, x: number, z: number}[] = decoded;
 
-                for (let i = 0; i < data.data.length / 3; i++) {
-                    const type = data.g1();
-                    const x = data.g1();
-                    const z = data.g1();
-
-                    requested.push({ type, x, z });
-                }
-
-                for (let i = 0; i < requested.length; i++) {
-                    const { type, x, z } = requested[i];
+                for (let i = 0; i < maps.length; i++) {
+                    const { type, x, z } = maps[i];
 
                     const CHUNK_SIZE = 5000 - 1 - 2 - 1 - 1 - 2 - 2;
                     if (type == 0) {
@@ -109,32 +103,11 @@ export class NetworkPlayer extends Player {
                     }
                 }
             } else if (packetType === ClientProt.MOVE_GAMECLICK || packetType === ClientProt.MOVE_MINIMAPCLICK) {
-                const running = data.g1();
-                const startX = data.g2();
-                const startZ = data.g2();
-                const offset = packetType === ClientProt.MOVE_MINIMAPCLICK ? 14 : 0;
-                const checkpoints = (data.available - offset) >> 1;
+                const [running, moveX, moveZ] = decoded;
 
-                pathfindX = startX;
-                pathfindZ = startZ;
-                if (checkpoints != 0) {
-                    // Just grab the last one we need skip the rest.
-                    data.pos += (checkpoints - 1) << 1;
-                    pathfindX = data.g1b() + startX;
-                    pathfindZ = data.g1b() + startZ;
-                }
-
-                if (
-                    this.delayed() ||
-                    running < 0 ||
-                    running > 1 ||
-                    Position.distanceTo(this, {
-                        x: pathfindX,
-                        z: pathfindZ,
-                        width: this.width,
-                        length: this.length
-                    }) > 104
-                ) {
+                pathfindX = moveX;
+                pathfindZ = moveZ;
+                if (this.delayed() || running < 0 || running > 1 || Position.distanceToSW(this, {x: pathfindX, z: pathfindZ}) > 104) {
                     pathfindX = -1;
                     pathfindZ = -1;
                     this.unsetMapFlag();
@@ -151,7 +124,7 @@ export class NetworkPlayer extends Player {
                 }
                 pathfindRequest = true;
             } else if (packetType === ClientProt.MOVE_OPCLICK) {
-                const running = data.g1();
+                const [running] = decoded;
 
                 if (running < 0 || running > 1) {
                     continue;
@@ -163,7 +136,7 @@ export class NetworkPlayer extends Player {
                     this.setVar(VarPlayerType.getId('temp_run'), running);
                 }
             } else if (packetType === ClientProt.CLIENT_CHEAT) {
-                const cheat = data.gjstr();
+                const [cheat] = decoded;
 
                 if (cheat.length > 80) {
                     continue;
@@ -171,9 +144,7 @@ export class NetworkPlayer extends Player {
 
                 this.onCheat(cheat);
             } else if (packetType === ClientProt.MESSAGE_PUBLIC) {
-                const colour = data.g1();
-                const effect = data.g1();
-                const message = WordPack.unpack(data, data.data.length - 2);
+                const [colour, effect, message] = decoded;
 
                 if (colour < 0 || colour > 11 || effect < 0 || effect > 2 || message.length > 100) {
                     continue;
@@ -193,21 +164,7 @@ export class NetworkPlayer extends Player {
 
                 World.socialPublicMessage(this.username37, message);
             } else if (packetType === ClientProt.IF_PLAYERDESIGN) {
-                const female = data.g1();
-
-                const body = [];
-                for (let i = 0; i < 7; i++) {
-                    body[i] = data.g1();
-
-                    if (body[i] === 255) {
-                        body[i] = -1;
-                    }
-                }
-
-                const colors = [];
-                for (let i = 0; i < 5; i++) {
-                    colors[i] = data.g1();
-                }
+                const [female, body, colors] = decoded;
 
                 if (!this.allowDesign) {
                     continue;
@@ -218,7 +175,7 @@ export class NetworkPlayer extends Player {
                 }
 
                 let pass = true;
-                for (let i = 0; i < 7; i++) {
+                for (let i = 0; i < body.length; i++) {
                     let type = i;
                     if (female === 1) {
                         type += 7;
@@ -240,7 +197,7 @@ export class NetworkPlayer extends Player {
                     continue;
                 }
 
-                for (let i = 0; i < 5; i++) {
+                for (let i = 0; i < colors.length; i++) {
                     if (colors[i] >= Player.DESIGN_BODY_COLORS[i].length) {
                         pass = false;
                         break;
@@ -256,7 +213,7 @@ export class NetworkPlayer extends Player {
                 this.colors = colors;
                 this.generateAppearance(InvType.getId('worn'));
             } else if (packetType === ClientProt.TUTORIAL_CLICKSIDE) {
-                const tab = data.g1();
+                const [tab] = decoded;
 
                 if (tab < 0 || tab > 13) {
                     continue;
@@ -275,7 +232,7 @@ export class NetworkPlayer extends Player {
 
                 this.executeScript(this.activeScript, true);
             } else if (packetType === ClientProt.RESUME_P_COUNTDIALOG) {
-                const input = data.g4();
+                const [input] = decoded;
                 if (!this.activeScript || this.activeScript.execution !== ScriptState.COUNTDIALOG) {
                     continue;
                 }
@@ -283,7 +240,7 @@ export class NetworkPlayer extends Player {
                 this.lastInt = input;
                 this.executeScript(this.activeScript, true);
             } else if (packetType === ClientProt.IF_BUTTON) {
-                const comId = data.g2();
+                const [comId] = decoded;
 
                 const com = Component.get(comId);
                 if (typeof com === 'undefined' || !this.isComponentVisible(com)) {
@@ -310,9 +267,7 @@ export class NetworkPlayer extends Player {
                 }
             } else if (packetType === ClientProt.INV_BUTTON1 || packetType === ClientProt.INV_BUTTON2 || packetType === ClientProt.INV_BUTTON3 || packetType === ClientProt.INV_BUTTON4 || packetType === ClientProt.INV_BUTTON5) {
                 // jagex has if_button1-5
-                const item = data.g2();
-                const slot = data.g2();
-                const comId = data.g2();
+                const [item, slot, comId] = decoded;
 
                 const com = Component.get(comId);
                 if (typeof com === 'undefined' || !com.inventoryOptions || !com.inventoryOptions.length || !this.isComponentVisible(com)) {
@@ -371,9 +326,7 @@ export class NetworkPlayer extends Player {
                 }
             } else if (packetType === ClientProt.INV_BUTTOND) {
                 // jagex has if_buttond
-                const comId = data.g2();
-                const slot = data.g2();
-                const targetSlot = data.g2();
+                const [comId, slot, targetSlot] = decoded;
 
                 const com = Component.get(comId);
                 if (typeof com === 'undefined' || !this.isComponentVisible(com)) {
@@ -410,9 +363,7 @@ export class NetworkPlayer extends Player {
                     }
                 }
             } else if (packetType === ClientProt.OPHELD1 || packetType === ClientProt.OPHELD2 || packetType === ClientProt.OPHELD3 || packetType === ClientProt.OPHELD4 || packetType === ClientProt.OPHELD5) {
-                const item = data.g2();
-                const slot = data.g2();
-                const comId = data.g2();
+                const [item, slot, comId] = decoded;
 
                 const com = Component.get(comId);
                 if (typeof com === 'undefined' || !this.isComponentVisible(com)) {
@@ -420,12 +371,10 @@ export class NetworkPlayer extends Player {
                 }
 
                 const type = ObjType.get(item);
-                if (
-                    (packetType === ClientProt.OPHELD1 && ((type.iop && !type.iop[0]) || !type.iop)) ||
-                    (packetType === ClientProt.OPHELD2 && ((type.iop && !type.iop[1]) || !type.iop)) ||
-                    (packetType === ClientProt.OPHELD3 && ((type.iop && !type.iop[2]) || !type.iop)) ||
-                    (packetType === ClientProt.OPHELD4 && ((type.iop && !type.iop[3]) || !type.iop))
-                ) {
+                if (!type.iop) {
+                    continue;
+                }
+                if ((packetType === ClientProt.OPHELD1 && !type.iop[0]) || (packetType === ClientProt.OPHELD2 && !type.iop[1]) || (packetType === ClientProt.OPHELD3 && !type.iop[2]) || (packetType === ClientProt.OPHELD4 && !type.iop[3])) {
                     continue;
                 }
 
@@ -471,12 +420,7 @@ export class NetworkPlayer extends Player {
                     }
                 }
             } else if (packetType === ClientProt.OPHELDU) {
-                const item = data.g2();
-                const slot = data.g2();
-                const comId = data.g2();
-                const useItem = data.g2();
-                const useSlot = data.g2();
-                const useComId = data.g2();
+                const [item, slot, comId, useItem, useSlot, useComId] = decoded;
 
                 const com = Component.get(comId);
                 if (typeof com === 'undefined' || !this.isComponentVisible(com)) {
@@ -562,10 +506,7 @@ export class NetworkPlayer extends Player {
                     this.messageGame('Nothing interesting happens.');
                 }
             } else if (packetType === ClientProt.OPHELDT) {
-                const item = data.g2();
-                const slot = data.g2();
-                const comId = data.g2();
-                const spellComId = data.g2();
+                const [item, slot, comId, spellComId] = decoded;
 
                 const com = Component.get(comId);
                 if (typeof com === 'undefined' || !this.isComponentVisible(com)) {
@@ -609,9 +550,7 @@ export class NetworkPlayer extends Player {
                     this.messageGame('Nothing interesting happens.');
                 }
             } else if (packetType === ClientProt.OPLOC1 || packetType === ClientProt.OPLOC2 || packetType === ClientProt.OPLOC3 || packetType === ClientProt.OPLOC4 || packetType === ClientProt.OPLOC5) {
-                const x = data.g2();
-                const z = data.g2();
-                const locId = data.g2();
+                const [x, z, locId] = decoded;
 
                 const absLeftX = this.loadedX - 52;
                 const absRightX = this.loadedX + 52;
@@ -660,13 +599,7 @@ export class NetworkPlayer extends Player {
                 pathfindZ = loc.z;
                 pathfindRequest = true;
             } else if (packetType === ClientProt.OPLOCU) {
-                const x = data.g2();
-                const z = data.g2();
-                const locId = data.g2();
-
-                const item = data.g2();
-                const slot = data.g2();
-                const comId = data.g2();
+                const [x, z, locId, item, slot, comId] = decoded;
 
                 const com = Component.get(comId);
                 if (typeof com === 'undefined' || !this.isComponentVisible(com)) {
@@ -712,10 +645,7 @@ export class NetworkPlayer extends Player {
                 pathfindZ = loc.z;
                 pathfindRequest = true;
             } else if (packetType === ClientProt.OPLOCT) {
-                const x = data.g2();
-                const z = data.g2();
-                const locId = data.g2();
-                const spellComId = data.g2();
+                const [x, z, locId, spellComId] = decoded;
 
                 const spellCom = Component.get(spellComId);
                 if (typeof spellCom === 'undefined' || !this.isComponentVisible(spellCom)) {
@@ -748,7 +678,7 @@ export class NetworkPlayer extends Player {
                 pathfindZ = loc.z;
                 pathfindRequest = true;
             } else if (packetType === ClientProt.OPNPC1 || packetType === ClientProt.OPNPC2 || packetType === ClientProt.OPNPC3 || packetType === ClientProt.OPNPC4 || packetType === ClientProt.OPNPC5) {
-                const nid = data.g2();
+                const [nid] = decoded;
 
                 const npc = World.getNpc(nid);
                 if (!npc || npc.delayed()) {
@@ -793,10 +723,7 @@ export class NetworkPlayer extends Player {
                 pathfindZ = npc.z;
                 pathfindRequest = true;
             } else if (packetType === ClientProt.OPNPCU) {
-                const nid = data.g2();
-                const item = data.g2();
-                const slot = data.g2();
-                const comId = data.g2();
+                const [nid, item, slot, comId] = decoded;
 
                 const com = Component.get(comId);
                 if (typeof com === 'undefined' || !this.isComponentVisible(com)) {
@@ -838,8 +765,7 @@ export class NetworkPlayer extends Player {
                 pathfindZ = npc.z;
                 pathfindRequest = true;
             } else if (packetType === ClientProt.OPNPCT) {
-                const nid = data.g2();
-                const spellComId = data.g2();
+                const [nid, spellComId] = decoded;
 
                 const spellCom = Component.get(spellComId);
                 if (typeof spellCom === 'undefined' || !this.isComponentVisible(spellCom)) {
@@ -868,9 +794,7 @@ export class NetworkPlayer extends Player {
                 pathfindZ = npc.z;
                 pathfindRequest = true;
             } else if (packetType === ClientProt.OPOBJ1 || packetType === ClientProt.OPOBJ2 || packetType === ClientProt.OPOBJ3 || packetType === ClientProt.OPOBJ4 || packetType === ClientProt.OPOBJ5) {
-                const x = data.g2();
-                const z = data.g2();
-                const objId = data.g2();
+                const [x, z, objId] = decoded;
 
                 const absLeftX = this.loadedX - 52;
                 const absRightX = this.loadedX + 52;
@@ -888,10 +812,10 @@ export class NetworkPlayer extends Player {
 
                 const objType = ObjType.get(obj.type);
                 // todo: validate all options
-                if (
-                    (packetType === ClientProt.OPOBJ1 && ((objType.op && !objType.op[0]) || !objType.op)) ||
-                    (packetType === ClientProt.OPOBJ4 && ((objType.op && !objType.op[3]) || !objType.op))
-                ) {
+                if (!objType.op) {
+                    continue;
+                }
+                if ((packetType === ClientProt.OPOBJ1 && !objType.op[0]) || (packetType === ClientProt.OPOBJ4 && !objType.op[3])) {
                     continue;
                 }
 
@@ -914,13 +838,7 @@ export class NetworkPlayer extends Player {
                 pathfindZ = obj.z;
                 pathfindRequest = true;
             } else if (packetType === ClientProt.OPOBJU) {
-                const x = data.g2();
-                const z = data.g2();
-                const objId = data.g2();
-
-                const item = data.g2();
-                const slot = data.g2();
-                const comId = data.g2();
+                const [x, z, objId, item, slot, comId] = decoded;
 
                 const com = Component.get(comId);
                 if (typeof com === 'undefined' || !this.isComponentVisible(com)) {
@@ -966,10 +884,7 @@ export class NetworkPlayer extends Player {
                 pathfindZ = obj.z;
                 pathfindRequest = true;
             } else if (packetType === ClientProt.OPOBJT) {
-                const x = data.g2();
-                const z = data.g2();
-                const objId = data.g2();
-                const spellComId = data.g2();
+                const [x, z, objId, spellComId] = decoded;
 
                 const spellCom = Component.get(spellComId);
                 if (typeof spellCom === 'undefined' || !this.isComponentVisible(spellCom)) {
@@ -1002,7 +917,7 @@ export class NetworkPlayer extends Player {
                 pathfindZ = obj.z;
                 pathfindRequest = true;
             } else if (packetType === ClientProt.OPPLAYER1 || packetType === ClientProt.OPPLAYER2 || packetType === ClientProt.OPPLAYER3 || packetType === ClientProt.OPPLAYER4) {
-                const pid = data.g2();
+                const [pid] = decoded;
 
                 const player = World.getPlayer(pid);
                 if (!player) {
@@ -1032,10 +947,7 @@ export class NetworkPlayer extends Player {
                 pathfindZ = player.z;
                 pathfindRequest = true;
             } else if (packetType === ClientProt.OPPLAYERU) {
-                const pid = data.g2();
-                const item = data.g2();
-                const slot = data.g2();
-                const comId = data.g2();
+                const [pid, item, slot, comId] = decoded;
 
                 const com = Component.get(comId);
                 if (typeof com === 'undefined' || !this.isComponentVisible(com)) {
@@ -1078,8 +990,7 @@ export class NetworkPlayer extends Player {
                 pathfindZ = player.z;
                 pathfindRequest = true;
             } else if (packetType === ClientProt.OPPLAYERT) {
-                const pid = data.g2();
-                const spellComId = data.g2();
+                const [pid, spellComId] = decoded;
 
                 const spellCom = Component.get(spellComId);
                 if (typeof spellCom === 'undefined' || !this.isComponentVisible(spellCom)) {
@@ -1110,19 +1021,19 @@ export class NetworkPlayer extends Player {
                 pathfindZ = player.z;
                 pathfindRequest = true;
             } else if (packetType === ClientProt.FRIENDLIST_ADD) {
-                const other = data.g8();
+                const [other] = decoded;
 
                 World.socialAddFriend(this.username37, other);
             } else if (packetType === ClientProt.FRIENDLIST_DEL) {
-                const other = data.g8();
+                const [other] = decoded;
 
                 World.socialRemoveFriend(this.username37, other);
             } else if (packetType === ClientProt.IGNORELIST_ADD) {
-                const other = data.g8();
+                const [other] = decoded;
 
                 World.socialAddIgnore(this.username37, other);
             } else if (packetType === ClientProt.IGNORELIST_DEL) {
-                const other = data.g8();
+                const [other] = decoded;
 
                 World.socialRemoveIgnore(this.username37, other);
             } else if (packetType === ClientProt.IDLE_TIMER) {
@@ -1131,24 +1042,22 @@ export class NetworkPlayer extends Player {
                     this.logoutRequested = true;
                 }
             } else if (packetType === ClientProt.MESSAGE_PRIVATE) {
-                const other = data.g8();
-                const message = WordPack.unpack(data, data.data.length - 8);
+                const [other, message] = decoded;
 
                 World.socialPrivateMessage(this.username37, other, message);
             }
-        }
-
-        if (this.delayed()) {
-            this.unsetMapFlag();
-            pathfindRequest = false;
-            pathfindX = -1;
-            pathfindZ = -1;
         }
 
         this.client?.reset();
 
         // process any pathfinder requests now
         if (pathfindRequest && pathfindX !== -1 && pathfindZ !== -1) {
+            if (this.delayed()) {
+                this.pathfinding = false;
+                this.unsetMapFlag();
+                return;
+            }
+
             if (!this.target || this.target instanceof Loc || this.target instanceof Obj) {
                 this.faceEntity = -1;
                 this.mask |= Player.FACE_ENTITY;
