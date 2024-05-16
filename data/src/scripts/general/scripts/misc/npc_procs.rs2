@@ -322,27 +322,27 @@ while ($maxX >= $minX) {
         npc_findallzone($zoneCoord);
         while (.npc_findnext = true) {
             if (npc_uid ! .npc_uid & .npc_type = $npc & distance($coord, .npc_coord) <= $distance & add(.%npc_lastcombat, 8) <= map_clock & finduid($player) = true) {
-                if ($op = 1) {
+                if ($op = 1 & .npc_getmode ! opplayer1) {
                     .npc_setmode(opplayer1);
                     if (string_length($say) > 0) {
                         .npc_say($say);
                     }
-                } else if ($op = 2) {
+                } else if ($op = 2 & .npc_getmode ! opplayer2) {
                     .npc_setmode(opplayer2);
                     if (string_length($say) > 0) {
                         .npc_say($say);
                     }
-                } else if ($op = 3) {
+                } else if ($op = 3 & .npc_getmode ! opplayer3) {
                     .npc_setmode(opplayer3);
                     if (string_length($say) > 0) {
                         .npc_say($say);
                     }
-                } else if ($op = 4) {
+                } else if ($op = 4 & .npc_getmode ! opplayer4) {
                     .npc_setmode(opplayer4);
                     if (string_length($say) > 0) {
                         .npc_say($say);
                     }
-                } else if ($op = 5) {
+                } else if ($op = 5 & .npc_getmode ! opplayer5) {
                     .npc_setmode(opplayer5);
                     if (string_length($say) > 0) {
                         .npc_say($say);
