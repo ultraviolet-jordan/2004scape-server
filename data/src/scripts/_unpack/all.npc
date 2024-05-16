@@ -628,6 +628,7 @@ param=attack_anim,human_sword_slash
 param=defend_anim,human_sword_defend2
 param=attack_sound,hacksword_slash
 // param=defend_sound,brassclash2
+maxrange=5
 
 [white_knight]
 name=White Knight

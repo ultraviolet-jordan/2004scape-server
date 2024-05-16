@@ -1,0 +1,16 @@
+[ai_queue1,alkharid_warrior](int $damage)
+if (~alkharid_warrior_cried_for_help = false) {
+    ~.npc_opplayer_within_distance(npc_coord, npc_type, %npc_attacking_uid, 5, 2, "Brother, I will help thee with this infidel!");
+}
+gosub(npc_default_retaliate);
+
+// private
+[proc,alkharid_warrior_cried_for_help]()(boolean)
+def_boolean $found = false;
+npc_findallzone(npc_coord);
+while (.npc_findnext = true) {
+    if (.npc_getmode = opplayer2 & .%npc_attacking_uid = %npc_attacking_uid) {
+        return(true);
+    }
+}
+return(false);
