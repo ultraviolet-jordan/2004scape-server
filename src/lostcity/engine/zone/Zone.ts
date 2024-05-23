@@ -1,407 +1,238 @@
-import Packet from '#jagex2/io/Packet.js';
-import Loc from '#lostcity/entity/Loc.js';
+import Player from '#lostcity/entity/Player.js';
 import Npc from '#lostcity/entity/Npc.js';
 import Obj from '#lostcity/entity/Obj.js';
-import Player from '#lostcity/entity/Player.js';
-import ServerProt from '#lostcity/server/ServerProt.js';
+import Loc from '#lostcity/entity/Loc.js';
+import Entity from '#lostcity/entity/Entity.js';
 import World from '#lostcity/engine/World.js';
-import PathingEntity from '#lostcity/entity/PathingEntity.js';
-import {locShapeLayer} from '@2004scape/rsmod-pathfinder';
 
-export class ZoneEvent {
-    type = -1;
-    receiverId = -1;
-    buffer: Packet = new Packet(new Uint8Array());
-    tick = -1;
-    static = false;
-
-    // temp
-    x = -1;
-    z = -1;
-
-    // loc
-    layer = -1;
-
-    constructor(type: number) {
-        this.type = type;
-    }
-}
+import {
+    LocAddChangeEvent,
+    LocAnimEvent,
+    LocDelEvent,
+    LocMergeEvent,
+    MapAnimEvent,
+    MapProjAnimEvent,
+    ObjAddEvent,
+    ObjCountEvent,
+    ObjDelEvent,
+    ObjRevealEvent,
+    ZoneEvent
+} from '#lostcity/engine/zone/ZoneEvent.js';
 
 export default class Zone {
-    static mapAnim(srcX: number, srcZ: number, id: number, height: number, delay: number) {
-        const out = new Packet(new Uint8Array(1 + 1 + 2 + 1 + 2));
-        out.p1(ServerProt.MAP_ANIM.id);
+    // constructor
+    private readonly players: Player[];
+    private readonly npcs: Npc[];
+    private readonly objs: Obj[];
+    private readonly locs: Loc[];
 
-        out.p1(((srcX & 0x7) << 4) | (srcZ & 0x7));
-        out.p2(id);
-        out.p1(height);
-        out.p2(delay);
+    private readonly spawnedObjs: Obj[];
+    private readonly spawnedLocs: Loc[];
 
-        return out;
-    }
+    private readonly index: number;
 
-    // variables fully broken out for now
-    //coord $from, coord $to, spotanim $spotanim, int $fromHeight, int $toHeight, int $startDelay, int $endDelay, int $peak, int $arc
-    static mapProjAnim(srcX: number, srcZ: number, dstX: number, dstZ: number, target: number, spotanim: number, srcHeight: number, dstHeight: number, startDelay: number, endDelay: number, peak: number, arc: number) {
-        const out = new Packet(new Uint8Array(1 + 1 + 1 + 1 + 2 + 2 + 1 + 1 + 2 + 2 + 1 + 1));
-        out.p1(ServerProt.MAP_PROJANIM.id);
-
-        out.p1(((srcX & 0x7) << 4) | (srcZ & 0x7));
-        out.p1(dstX - srcX);
-        out.p1(dstZ - srcZ);
-        out.p2(target); // 0: coord, > 0: npc, < 0: player
-        out.p2(spotanim);
-        out.p1(srcHeight);
-        out.p1(dstHeight);
-        out.p2(startDelay);
-        out.p2(endDelay);
-        out.p1(peak);
-        out.p1(arc);
-
-        return out;
-    }
-
-    static locAddChange(srcX: number, srcZ: number, id: number, shape: number, angle: number) {
-        const out = new Packet(new Uint8Array(1 + 1 + 1 + 2));
-        out.p1(ServerProt.LOC_ADD_CHANGE.id);
-
-        out.p1(((srcX & 0x7) << 4) | (srcZ & 0x7));
-        out.p1((shape << 2) | (angle & 3));
-        out.p2(id);
-
-        return out;
-    }
-
-    static locDel(srcX: number, srcZ: number, shape: number, angle: number) {
-        const out = new Packet(new Uint8Array(1 + 1 + 1));
-        out.p1(ServerProt.LOC_DEL.id);
-
-        out.p1(((srcX & 0x7) << 4) | (srcZ & 0x7));
-        out.p1((shape << 2) | (angle & 3));
-
-        return out;
-    }
-
-    // merge player with loc, e.g. agility training through pipes
-    // useful due to draw prioritizes
-    static locMerge(srcX: number, srcZ: number, shape: number, angle: number, locId: number, startCycle: number, endCycle: number, pid: number, east: number, south: number, west: number, north: number) {
-        const out = new Packet(new Uint8Array(1 + 1 + 1 + 2 + 2 + 2 + 2 + 1 + 1 + 1 + 1));
-        out.p1(ServerProt.LOC_MERGE.id);
-
-        out.p1(((srcX & 0x7) << 4) | (srcZ & 0x7));
-        out.p1((shape << 2) | (angle & 3));
-        out.p2(locId);
-        out.p2(startCycle);
-        out.p2(endCycle);
-        out.p2(pid);
-        out.p1(east - srcX);
-        out.p1(south - srcZ);
-        out.p1(west - srcX);
-        out.p1(north - srcZ);
-
-        return out;
-    }
-
-    static locAnim(srcX: number, srcZ: number, shape: number, angle: number, id: number) {
-        const out = new Packet(new Uint8Array(1 + 1 + 1 + 2));
-        out.p1(ServerProt.LOC_ANIM.id);
-
-        out.p1(((srcX & 0x7) << 4) | (srcZ & 0x7));
-        out.p1((shape << 2) | (angle & 3));
-        out.p2(id);
-
-        return out;
-    }
-
-    static objAdd(srcX: number, srcZ: number, id: number, count: number) {
-        const out = new Packet(new Uint8Array(1 + 1 + 2 + 2));
-        out.p1(ServerProt.OBJ_ADD.id);
-
-        out.p1(((srcX & 0x7) << 4) | (srcZ & 0x7));
-        out.p2(id);
-
-        if (count > 65535) {
-            count = 65535;
-        }
-        out.p2(count);
-
-        return out;
-    }
-
-    static objCount(srcX: number, srcZ: number, id: number, count: number) {
-        const out = new Packet(new Uint8Array(1 + 1 + 2 + 2));
-        out.p1(ServerProt.OBJ_COUNT.id);
-
-        out.p1(((srcX & 0x7) << 4) | (srcZ & 0x7));
-        out.p2(id);
-
-        if (count > 65535) {
-            count = 65535;
-        }
-        out.p2(count);
-
-        return out;
-    }
-
-    static objDel(srcX: number, srcZ: number, id: number, count: number) {
-        const out = new Packet(new Uint8Array(1 + 1 + 2));
-        out.p1(ServerProt.OBJ_DEL.id);
-
-        out.p1(((srcX & 0x7) << 4) | (srcZ & 0x7));
-        out.p2(id);
-
-        return out;
-    }
-
-    static objReveal(srcX: number, srcZ: number, id: number, count: number, receiverId: number) {
-        const out = new Packet(new Uint8Array(1 + 1 + 2 + 2 + 2));
-        out.p1(ServerProt.OBJ_REVEAL.id);
-
-        out.p1(((srcX & 0x7) << 4) | (srcZ & 0x7));
-        out.p2(id);
-        out.p2(count);
-        out.p2(receiverId);
-
-        return out;
-    }
-
-    index = -1; // packed coord
-
-    // zone entities
-    players: Set<number> = new Set(); // list of player uids
-    npcs: Set<number> = new Set(); // list of npc nids (not uid because type may change)
-    staticLocs: Loc[] = []; // source of truth from map data
-    locs: Loc[] = []; // dynamic locs
-    staticObjs: Obj[] = []; // source of truth from server map data
-    objs: Obj[] = []; // dynamic objs
-
-    // zone events
-    updates: ZoneEvent[] = [];
-    lastEvent = -1;
-    // buffer: Packet2 = new Packet2(new Uint8Array());
+    // runtime
+    private events: ZoneEvent[] = [];
 
     constructor(index: number) {
+        this.players = [];
+        this.npcs = [];
+        this.objs = [];
+        this.locs = [];
+        this.spawnedObjs = [];
+        this.spawnedLocs = [];
         this.index = index;
     }
 
-    enter(entity: PathingEntity) {
-        if (entity instanceof Player && !this.players.has(entity.uid)) {
-            this.players.add(entity.uid);
-        } else if (entity instanceof Npc && !this.npcs.has(entity.nid)) {
-            this.npcs.add(entity.nid);
+    playerAdd(player: Player): void {
+        this.players.push(player);
+    }
+
+    playerDel(player: Player): void {
+        const index: number = this.players.indexOf(player);
+        if (index !== -1) {
+            this.players.splice(index, 1);
         }
     }
 
-    leave(entity: PathingEntity) {
-        if (entity instanceof Player) {
-            this.players.delete(entity.uid);
-        } else if (entity instanceof Npc) {
-            this.npcs.delete(entity.nid);
+    npcAdd(npc: Npc, despawn: number): void {
+        this.npcs.push(npc);
+        this.add(npc, despawn);
+    }
+
+    npcDel(npc: Npc, respawn: number): void {
+        const index: number = this.npcs.indexOf(npc);
+        if (index !== -1) {
+            this.npcs.splice(index, 1);
+        }
+        this.delete(npc, respawn);
+    }
+
+    reset(): void {
+        this.events = [];
+    }
+
+    mapAnim(srcX: number, srcZ: number, id: number, height: number, delay: number): void {
+        this.events.push(new MapAnimEvent(srcX, srcZ, id, height, delay));
+    }
+
+    mapProjAnim(srcX: number, srcZ: number, dstX: number, dstZ: number, target: number, spotanim: number, srcHeight: number, dstHeight: number, startDelay: number, endDelay: number, peak: number, arc: number): void {
+        this.events.push(new MapProjAnimEvent(srcX, srcZ, dstX, dstZ, target, spotanim, srcHeight, dstHeight, startDelay, endDelay, peak, arc));
+    }
+
+    locAddChange(loc: Loc, add: boolean): void {
+        this.events.push(new LocAddChangeEvent(loc.x, loc.z, loc.type, loc.shape, loc.angle));
+    }
+
+    locDel(srcX: number, srcZ: number, shape: number, angle: number): void {
+        this.events.push(new LocDelEvent(srcX, srcZ, shape, angle));
+    }
+
+    locMerge(srcX: number, srcZ: number, shape: number, angle: number, id: number, startCycle: number, endCycle: number, pid: number, east: number, south: number, west: number, north: number): void {
+        this.events.push(new LocMergeEvent(srcX, srcZ, shape, angle, id, startCycle, endCycle, pid, east, south, west, north));
+    }
+
+    locAnim(srcX: number, srcZ: number, shape: number, angle: number, id: number): void {
+        this.events.push(new LocAnimEvent(srcX, srcZ, shape, angle, id));
+    }
+
+    objAdd(srcX: number, srcZ: number, id: number, count: number): void {
+        this.events.push(new ObjAddEvent(srcX, srcZ, id, count));
+    }
+
+    objCount(srcX: number, srcZ: number, id: number, count: number): void {
+        this.events.push(new ObjCountEvent(srcX, srcZ, id, count));
+    }
+
+    objDel(srcX: number, srcZ: number, id: number): void {
+        this.events.push(new ObjDelEvent(srcX, srcZ, id));
+    }
+
+    objReveal(srcX: number, srcZ: number, id: number, count: number, receiverId: number): void {
+        this.events.push(new ObjRevealEvent(srcX, srcZ, id, count, receiverId));
+    }
+
+    // addEntity(entity: Entity, despawn: number): void {
+    //     if (entity instanceof Player) {
+    //         this.players.add(entity);
+    //     } else if (entity instanceof Npc) {
+    //         this.npcs.add(entity);
+    //     } else if (entity instanceof Loc) {
+    //         this.locs.add(entity);
+    //     } else if (entity instanceof Obj) {
+    //         this.objs.add(entity);
+    //     } else {
+    //         throw new Error('something rlly bad happened here dAWG');
+    //     }
+    //     this.add(entity, despawn);
+    // }
+    //
+    // deleteEntity(entity: Entity, respawn: number): void {
+    //     if (entity instanceof Player) {
+    //         this.players.delete(entity);
+    //     } else if (entity instanceof Npc) {
+    //         this.npcs.delete(entity);
+    //     } else if (entity instanceof Loc) {
+    //         this.locs.delete(entity);
+    //     } else if (entity instanceof Obj) {
+    //         this.objs.delete(entity);
+    //     } else {
+    //         throw new Error('something rlly bad happened here cat?');
+    //     }
+    //     this.delete(entity, respawn);
+    // }
+
+    private add(entity: Entity, despawn: number): void {
+        entity.despawn = World.currentTick + despawn;
+        entity.respawn = -1;
+    }
+
+    private delete(entity: Entity, respawn: number): void {
+        entity.despawn = -1;
+        entity.respawn = World.currentTick + respawn;
+    }
+
+    *getAllPlayers(): IterableIterator<Player> {
+        for (const player of this.players) {
+            yield player;
         }
     }
 
-    // ---- not tied to any entities ----
-
-    animMap(x: number, z: number, spotanim: number, height: number, delay: number) {
-        const event = new ZoneEvent(ServerProt.MAP_ANIM.id);
-
-        event.buffer = Zone.mapAnim(x, z, spotanim, height, delay);
-        event.x = x;
-        event.z = z;
-        event.tick = World.currentTick;
-
-        this.updates.push(event);
-        this.lastEvent = World.currentTick;
-    }
-
-    mapProjAnim(x: number, z: number, dstX: number, dstZ: number, target: number, spotanim: number, srcHeight: number, dstHeight: number, startDelay: number, endDelay: number, peak: number, arc: number) {
-        const event = new ZoneEvent(ServerProt.MAP_PROJANIM.id);
-
-        event.buffer = Zone.mapProjAnim(x, z, dstX, dstZ, target, spotanim, srcHeight, dstHeight, startDelay, endDelay, peak, arc);
-        event.x = x;
-        event.z = z;
-        event.tick = World.currentTick;
-
-        this.updates.push(event);
-        this.lastEvent = World.currentTick;
-    }
-
-    // ---- static locs/objs are added during world init ----
-
-    addStaticLoc(loc: Loc) {
-        this.staticLocs.push(loc);
-    }
-
-    addStaticObj(obj: Obj) {
-        this.staticObjs.push(obj);
-
-        const event = new ZoneEvent(ServerProt.OBJ_ADD.id);
-        event.buffer = Zone.objAdd(obj.x, obj.z, obj.id, obj.count);
-        event.tick = World.currentTick;
-        event.static = true;
-        this.updates.push(event);
-        this.lastEvent = World.currentTick;
-    }
-
-    // ----
-
-    addLoc(loc: Loc, duration: number) {
-        if (this.staticLocs.indexOf(loc) === -1) {
-            loc.despawn = World.currentTick + duration;
-            this.locs.push(loc);
+    *getAllNpcs(): IterableIterator<Npc> {
+        for (const npc of this.npcs) {
+            yield npc;
         }
+    }
 
-        const event = new ZoneEvent(ServerProt.LOC_ADD_CHANGE.id);
-        event.buffer = Zone.locAddChange(loc.x, loc.z, loc.type, loc.shape, loc.angle);
-        event.x = loc.x;
-        event.z = loc.z;
-        event.tick = World.currentTick;
-        event.layer = locShapeLayer(loc.shape);
-
-        this.updates = this.updates.filter(event => {
-            if (event.x === loc.x && event.z === loc.z && event.layer === locShapeLayer(loc.shape)) {
-                return false;
+    *getActiveNpcs(): IterableIterator<Npc> {
+        for (const npc of this.npcs) {
+            if (npc.despawn !== -1) {
+                if (npc.respawn !== -1) {
+                    throw new Error('this is really bad npc');
+                }
+                continue;
             }
-
-            return true;
-        });
-
-        this.updates.push(event);
-        this.lastEvent = World.currentTick;
+            yield npc;
+        }
     }
 
-    removeLoc(loc: Loc, duration: number) {
-        const event = new ZoneEvent(ServerProt.LOC_DEL.id);
-
-        const dynamicIndex = this.locs.indexOf(loc);
-        if (dynamicIndex !== -1) {
-            this.locs.splice(dynamicIndex, 1);
-        } else {
-            // static locs remain forever in memory, just create a zone event
-            loc.respawn = World.currentTick + duration;
-            event.static = true;
+    *getAllLocs(): IterableIterator<Loc> {
+        for (const loc of this.locs) {
+            yield loc;
         }
+        for (const loc of this.spawnedLocs) {
+            yield loc;
+        }
+    }
 
-        event.buffer = Zone.locDel(loc.x, loc.z, loc.shape, loc.angle);
-        event.x = loc.x;
-        event.z = loc.z;
-        event.tick = World.currentTick;
-        event.layer = locShapeLayer(loc.shape);
-
-        this.updates = this.updates.filter(event => {
-            if (event.x === loc.x && event.z === loc.z && event.layer === locShapeLayer(loc.shape)) {
-                return false;
+    *getActiveLocs(): IterableIterator<Loc> {
+        for (const loc of this.locs) {
+            if (loc.despawn !== -1) {
+                if (loc.respawn !== -1) {
+                    throw new Error('this is really bad loc');
+                }
+                continue;
             }
-
-            return true;
-        });
-
-        this.updates.push(event);
-        this.lastEvent = World.currentTick;
-    }
-
-    getLoc(x: number, z: number, type: number): Loc | null {
-        const dynamicLoc = this.locs.findIndex(loc => loc.x === x && loc.z === z && loc.type === type);
-        if (dynamicLoc !== -1) {
-            return this.locs[dynamicLoc];
+            yield loc;
         }
-
-        const staticLoc = this.staticLocs.findIndex(loc => loc.x === x && loc.z === z && loc.type === type && loc.respawn < World.currentTick);
-        if (staticLoc !== -1) {
-            return this.staticLocs[staticLoc];
-        }
-
-        return null;
-    }
-
-    mergeLoc(loc: Loc, player: Player, startCycle: number, endCycle: number, south: number, east: number, north: number, west: number) {
-        const event = new ZoneEvent(ServerProt.LOC_MERGE.id);
-
-        event.buffer = Zone.locMerge(loc.x, loc.z, loc.shape, loc.angle, loc.type, startCycle, endCycle, player.pid, east, south, west, north);
-        event.x = loc.x;
-        event.z = loc.z;
-        event.tick = World.currentTick;
-        event.layer = locShapeLayer(loc.shape);
-
-        this.updates.push(event);
-        this.lastEvent = World.currentTick;
-    }
-
-    animLoc(loc: Loc, seq: number) {
-        const event = new ZoneEvent(ServerProt.LOC_ANIM.id);
-
-        event.buffer = Zone.locAnim(loc.x, loc.z, loc.shape, loc.angle, seq);
-        event.x = loc.x;
-        event.z = loc.z;
-        event.tick = World.currentTick;
-        event.layer = locShapeLayer(loc.shape);
-
-        this.updates.push(event);
-        this.lastEvent = World.currentTick;
-    }
-
-    // ----
-
-    addObj(obj: Obj, receiver: Player | null, duration: number) {
-        const event = new ZoneEvent(ServerProt.OBJ_ADD.id);
-        if (this.staticObjs.indexOf(obj) === -1) {
-            obj.despawn = World.currentTick + duration;
-            this.objs.push(obj);
-        } else {
-            event.static = true;
-        }
-
-        if (receiver) {
-            event.receiverId = receiver.uid;
-        }
-        event.buffer = Zone.objAdd(obj.x, obj.z, obj.id, obj.count);
-        event.x = obj.x;
-        event.z = obj.z;
-        event.tick = World.currentTick;
-
-        this.updates.push(event);
-        this.lastEvent = World.currentTick;
-    }
-
-    removeObj(obj: Obj, receiver: Player | null) {
-        const event = new ZoneEvent(ServerProt.OBJ_DEL.id);
-
-        const dynamicIndex = this.objs.indexOf(obj);
-        if (dynamicIndex !== -1) {
-            this.objs.splice(dynamicIndex, 1);
-
-            if (receiver) {
-                event.receiverId = receiver.uid;
+        for (const loc of this.spawnedLocs) {
+            if (loc.despawn !== -1) {
+                if (loc.respawn !== -1) {
+                    throw new Error('this is really bad loc');
+                }
+                continue;
             }
+            yield loc;
         }
-
-        event.buffer = Zone.objDel(obj.x, obj.z, obj.id, obj.count);
-        event.x = obj.x;
-        event.z = obj.z;
-        event.tick = World.currentTick;
-
-        this.updates.push(event);
-        this.lastEvent = World.currentTick;
-    }
-    getDynObj(x: number, z: number, type: number): Obj | null {
-        const dynamicObj = this.objs.findIndex(obj => obj.x === x && obj.z === z && obj.type === type);
-        if (dynamicObj !== -1) {
-            return this.objs[dynamicObj];
-        }
-        return null;
     }
 
-    getObj(x: number, z: number, type: number): Obj | null {
-        const dynamicObj = this.getDynObj(x, z, type);
-        if (dynamicObj !== null) {
-            return dynamicObj;
+    *getAllObjs(): IterableIterator<Obj> {
+        for (const obj of this.objs) {
+            yield obj;
         }
-
-        const staticObj = this.staticObjs.findIndex(obj => obj.x === x && obj.z === z && obj.type === type && obj.respawn < World.currentTick);
-        if (staticObj !== -1) {
-            return this.staticObjs[staticObj];
+        for (const obj of this.spawnedObjs) {
+            yield obj;
         }
+    }
 
-        return null;
+    *getActiveObjs(): IterableIterator<Obj> {
+        for (const obj of this.objs) {
+            if (obj.despawn !== -1) {
+                if (obj.respawn !== -1) {
+                    throw new Error('this is really bad obj');
+                }
+                continue;
+            }
+            yield obj;
+        }
+        for (const obj of this.spawnedObjs) {
+            if (obj.despawn !== -1) {
+                if (obj.respawn !== -1) {
+                    throw new Error('this is really bad obj');
+                }
+                continue;
+            }
+            yield obj;
+        }
     }
 }

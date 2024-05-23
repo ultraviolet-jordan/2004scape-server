@@ -6,20 +6,20 @@ export default class ZoneManager {
     }
 
     static unpackIndex(index: number): { x: number; z: number; level: number } {
-        const x = (index & 0x7ff) << 3;
-        const z = ((index >> 11) & 0x7ff) << 3;
-        const level = index >> 22;
+        const x: number = (index & 0x7ff) << 3;
+        const z: number = ((index >> 11) & 0x7ff) << 3;
+        const level: number = index >> 22;
         return { x, z, level };
     }
 
-    zones = new Map<number, Zone>();
+    zones: Map<number, Zone> = new Map();
 
     // ----
 
     getZone(absoluteX: number, absoluteZ: number, level: number): Zone {
-        const zoneIndex = ZoneManager.zoneIndex(absoluteX, absoluteZ, level);
-        let zone = this.zones.get(zoneIndex);
-        if (typeof zone == 'undefined') {
+        const zoneIndex: number = ZoneManager.zoneIndex(absoluteX, absoluteZ, level);
+        let zone: Zone | undefined = this.zones.get(zoneIndex);
+        if (typeof zone === 'undefined') {
             zone = new Zone(zoneIndex);
             this.zones.set(zoneIndex, zone);
         }

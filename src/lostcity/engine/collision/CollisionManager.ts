@@ -2,14 +2,12 @@ import fs from 'fs';
 
 import Packet from '#jagex2/io/Packet.js';
 
-import ZoneManager from '#lostcity/engine/zone/ZoneManager.js';
 import LocType from '#lostcity/cache/LocType.js';
-import Loc from '#lostcity/entity/Loc.js';
 
 import {allocateIfAbsent, changeFloor, changeLoc, changeNpc, changePlayer, changeRoof, changeWall, LocAngle, LocLayer, locShapeLayer} from '@2004scape/rsmod-pathfinder';
 
 export default class CollisionManager {
-    init(zoneManager: ZoneManager) {
+    init() {
         console.time('Loading collision');
 
         const maps: string[] = fs.readdirSync('data/pack/server/maps').filter((x: string): boolean => x[0] === 'm');
@@ -21,7 +19,7 @@ export default class CollisionManager {
 
             const lands: Int8Array = new Int8Array(4 * 64 * 64); // 4 * 64 * 64 size is guaranteed for lands
             this.decodeLands(lands, Packet.load(`data/pack/server/maps/m${mx}_${mz}`), mapsquareX, mapsquareZ);
-            this.decodeLocs(zoneManager, lands, Packet.load(`data/pack/server/maps/l${mx}_${mz}`), mapsquareX, mapsquareZ);
+            this.decodeLocs(lands, Packet.load(`data/pack/server/maps/l${mx}_${mz}`), mapsquareX, mapsquareZ);
         }
         console.timeEnd('Loading collision');
     }
@@ -159,7 +157,7 @@ export default class CollisionManager {
         }
     }
 
-    private decodeLocs(zoneManager: ZoneManager, lands: Int8Array, packet: Packet, mapsquareX: number, mapsquareZ: number): void {
+    private decodeLocs(lands: Int8Array, packet: Packet, mapsquareX: number, mapsquareZ: number): void {
         let locId: number = -1;
         let locIdOffset: number = packet.gsmart();
         while (locIdOffset !== 0) {
@@ -189,7 +187,7 @@ export default class CollisionManager {
                 const absoluteX: number = x + mapsquareX;
                 const absoluteZ: number = z + mapsquareZ;
 
-                zoneManager.getZone(absoluteX, absoluteZ, actualLevel).addStaticLoc(new Loc(actualLevel, absoluteX, absoluteZ, width, length, locId, shape, angle));
+                // zoneManager.getZone(absoluteX, absoluteZ, actualLevel).addStaticLoc(new Loc(actualLevel, absoluteX, absoluteZ, width, length, locId, shape, angle));
 
                 if (type.blockwalk) {
                     this.changeLocCollision(shape, angle, type.blockrange, length, width, type.active, absoluteX, absoluteZ, actualLevel, true);

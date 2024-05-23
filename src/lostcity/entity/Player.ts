@@ -47,7 +47,6 @@ import ScriptPointer from '#lostcity/engine/script/ScriptPointer.js';
 
 import Environment from '#lostcity/util/Environment.js';
 import SpotanimType from '#lostcity/cache/SpotanimType.js';
-import { ZoneEvent } from '#lostcity/engine/zone/Zone.js';
 
 import LinkList from '#jagex2/datastruct/LinkList.js';
 import Stack from '#jagex2/datastruct/Stack.js';
@@ -249,7 +248,6 @@ export default class Player extends PathingEntity {
     // build area
     loadedX: number = -1;
     loadedZ: number = -1;
-    loadedZones: Record<number, number> = {};
     npcs: Set<number> = new Set(); // observed npcs
     players: Set<number> = new Set(); // observed players
     lastMovement: number = 0; // for p_arrivedelay
@@ -1311,11 +1309,6 @@ export default class Player extends PathingEntity {
 
             this.loadedX = this.x;
             this.loadedZ = this.z;
-            this.loadedZones = {};
-        }
-
-        if (this.moveSpeed === MoveSpeed.INSTANT && this.jump) {
-            this.loadedZones = {};
         }
     }
 
@@ -1338,37 +1331,6 @@ export default class Player extends PathingEntity {
                 }
 
                 const zone = World.getZone(x << 3, z << 3, this.level);
-
-                // todo: receiver/shared buffer logic
-                if (typeof this.loadedZones[zone.index] === 'undefined') {
-                    // full update necessary to clear client zone memory
-                    this.write(ServerProt.UPDATE_ZONE_FULL_FOLLOWS, x, z, this.loadedX, this.loadedZ);
-                    this.loadedZones[zone.index] = -1; // note: flash appears when changing floors
-                }
-
-                const updates = World.getUpdates(zone.index).filter((event: ZoneEvent): boolean => {
-                    return event.tick > this.loadedZones[zone.index];
-                });
-
-                if (updates.length) {
-                    this.write(ServerProt.UPDATE_ZONE_PARTIAL_FOLLOWS, x, z, this.loadedX, this.loadedZ);
-
-                    for (let i = 0; i < updates.length; i++) {
-                        // have to copy because encryption will be applied to buffer
-                        const data = updates[i].buffer;
-                        const out = new Packet(new Uint8Array(data.data.length));
-                        const pos = data.pos;
-                        data.pos = 0;
-                        data.gdata(out.data, 0, out.data.length);
-                        data.pos = pos;
-                        out.pos = pos;
-
-                        // the packet is released elsewhere.
-                        this.netOut.push(out);
-                    }
-                }
-
-                this.loadedZones[zone.index] = World.currentTick;
             }
         }
     }
