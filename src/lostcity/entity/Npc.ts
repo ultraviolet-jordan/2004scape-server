@@ -338,6 +338,8 @@ export default class Npc extends PathingEntity {
         this.mode = NpcMode.NONE;
         this.clearInteraction();
         this.updateMovement(false);
+        this.faceEntity = -1;
+        this.mask |= Npc.FACE_ENTITY;
     }
 
     defaultMode(): void {
@@ -345,6 +347,8 @@ export default class Npc extends PathingEntity {
         this.mode = type.defaultmode;
         this.clearInteraction();
         this.updateMovement(false);
+        this.faceEntity = -1;
+        this.mask |= Npc.FACE_ENTITY;
     }
 
     wanderMode(): void {
