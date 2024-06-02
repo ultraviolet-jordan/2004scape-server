@@ -22,7 +22,7 @@ import ServerProt from '#lostcity/server/ServerProt.js';
 import Environment from '#lostcity/util/Environment.js';
 import ColorConversion from '#lostcity/util/ColorConversion.js';
 
-import {findPath} from '@2004scape/rsmod-pathfinder';
+import * as rsmod from '@2004scape/rsmod-pathfinder';
 
 import {
     check,
@@ -391,7 +391,7 @@ const PlayerOps: CommandHandlers = {
         const pos: Position = check(state.popInt(), CoordValid);
 
         const player = state.activePlayer;
-        player.queueWaypoints(findPath(player.level, player.x, player.z, pos.x, pos.z, player.width, player.width, player.length, player.orientation));
+        player.queueWaypoints(rsmod.findPath(player.level, player.x, player.z, pos.x, pos.z, player.width, player.width, player.length, player.orientation));
         player.updateMovement(false); // try to walk immediately
     }),
 
