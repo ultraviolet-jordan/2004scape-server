@@ -4,6 +4,7 @@ import { ParamHelper } from '#lostcity/cache/ParamHelper.js';
 import ParamType from '#lostcity/cache/ParamType.js';
 import SeqType from '#lostcity/cache/SeqType.js';
 import StructType from '#lostcity/cache/StructType.js';
+import SpotanimType from '#lostcity/cache/SpotanimType.js';
 
 import World from '#lostcity/engine/World.js';
 
@@ -17,7 +18,7 @@ import { Position } from '#lostcity/entity/Position.js';
 import HuntModeType from '#lostcity/entity/hunt/HuntModeType.js';
 import Player from '#lostcity/entity/Player.js';
 import HuntVis from '#lostcity/entity/hunt/HuntVis.js';
-import SpotanimType from '#lostcity/cache/SpotanimType.js';
+import Npc from '#lostcity/entity/Npc.js';
 
 import {
     CollisionFlag,
@@ -31,14 +32,16 @@ import {
 
 import {
     check,
-    CoordValid, FontTypeValid,
+    CoordValid,
+    FontTypeValid,
     HuntVisValid,
-    LocTypeValid, MesanimValid,
-    NumberNotNull, ParamTypeValid,
+    LocTypeValid,
+    MesanimValid,
+    NumberNotNull,
+    ParamTypeValid,
     SeqTypeValid,
     SpotAnimTypeValid, StructTypeValid
 } from '#lostcity/engine/script/ScriptValidators.js';
-import Npc from '#lostcity/entity/Npc.js';
 
 const ActivePlayer = [ScriptPointer.ActivePlayer, ScriptPointer.ActivePlayer2];
 const ActiveNpc = [ScriptPointer.ActiveNpc, ScriptPointer.ActiveNpc2];
