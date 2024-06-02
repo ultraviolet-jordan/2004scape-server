@@ -12,10 +12,16 @@ import { PlayerQueueType, ScriptArgument } from '#lostcity/entity/EntityQueueReq
 import { PlayerTimerType } from '#lostcity/entity/EntityTimer.js';
 import { isNetworkPlayer } from '#lostcity/entity/NetworkPlayer.js';
 import { Position } from '#lostcity/entity/Position.js';
+import Interaction from '#lostcity/entity/Interaction.js';
+import InvType from '#lostcity/cache/InvType.js';
+import SpotanimType from '#lostcity/cache/SpotanimType.js';
+import NpcType from '#lostcity/cache/NpcType.js';
 
 import ServerProt from '#lostcity/server/ServerProt.js';
 
 import Environment from '#lostcity/util/Environment.js';
+import ColorConversion from '#lostcity/util/ColorConversion.js';
+
 import {findPath} from '@2004scape/rsmod-pathfinder';
 
 import {
@@ -26,14 +32,10 @@ import {
     InvTypeValid,
     NpcTypeValid,
     NumberNotNull,
-    ObjTypeValid, SeqTypeValid,
+    ObjTypeValid,
+    SeqTypeValid,
     SpotAnimTypeValid,
 } from '#lostcity/engine/script/ScriptValidators.js';
-import ColorConversion from '#lostcity/util/ColorConversion.js';
-import Interaction from '#lostcity/entity/Interaction.js';
-import InvType from '#lostcity/cache/InvType.js';
-import SpotanimType from '#lostcity/cache/SpotanimType.js';
-import NpcType from '#lostcity/cache/NpcType.js';
 
 const ActivePlayer = [ScriptPointer.ActivePlayer, ScriptPointer.ActivePlayer2];
 const ProtectedActivePlayer = [ScriptPointer.ProtectedActivePlayer, ScriptPointer.ProtectedActivePlayer2];
