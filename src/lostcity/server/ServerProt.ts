@@ -200,7 +200,7 @@ export const ServerProtEncoders: {
     },
     [ServerProt.UPDATE_INV_FULL.id]: (buf: Packet, com: number, inv: Inventory) => {
         const comType = Component.get(com);
-        const size = Math.min(inv.capacity, comType.width * comType.height);
+        const size = comType ? Math.min(inv.capacity, comType.width * comType.height) : 0;
 
         // todo: size should be the index of the last non-empty slot
         buf.p2(com);

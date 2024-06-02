@@ -33,7 +33,7 @@ export default class StructType extends ConfigType implements ParamHolder {
         }
     }
 
-    static get(id: number): StructType {
+    static get(id: number): StructType | undefined {
         return StructType.configs[id];
     }
 
@@ -41,10 +41,10 @@ export default class StructType extends ConfigType implements ParamHolder {
         return StructType.configNames.get(name) ?? -1;
     }
 
-    static getByName(name: string): StructType | null {
+    static getByName(name: string): StructType | undefined {
         const id = this.getId(name);
         if (id === -1) {
-            return null;
+            return undefined;
         }
 
         return this.get(id);

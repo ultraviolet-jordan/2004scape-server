@@ -33,7 +33,7 @@ export default class VarNpcType extends ConfigType {
         }
     }
 
-    static get(id: number): VarNpcType {
+    static get(id: number): VarNpcType | undefined {
         return VarNpcType.configs[id];
     }
 
@@ -41,10 +41,10 @@ export default class VarNpcType extends ConfigType {
         return VarNpcType.configNames.get(name) ?? -1;
     }
 
-    static getByName(name: string): VarNpcType | null {
+    static getByName(name: string): VarNpcType | undefined {
         const id = this.getId(name);
         if (id === -1) {
-            return null;
+            return undefined;
         }
 
         return this.get(id);

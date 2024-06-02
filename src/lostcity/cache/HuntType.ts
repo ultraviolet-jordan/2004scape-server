@@ -39,7 +39,7 @@ export default class HuntType extends ConfigType {
         }
     }
 
-    static get(id: number): HuntType {
+    static get(id: number): HuntType | undefined {
         return HuntType.configs[id];
     }
 
@@ -47,10 +47,10 @@ export default class HuntType extends ConfigType {
         return HuntType.configNames.get(name) ?? -1;
     }
 
-    static getByName(name: string): HuntType | null {
+    static getByName(name: string): HuntType | undefined {
         const id = this.getId(name);
         if (id === -1) {
-            return null;
+            return undefined;
         }
 
         return this.get(id);

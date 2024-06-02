@@ -30,6 +30,10 @@ export default class OpObjHandler extends MessageHandler<OpObj> {
         }
 
         const objType = ObjType.get(obj.type);
+        if (!objType) {
+            return false;
+        }
+
         // todo: validate all options
         if ((message.op === 1 && ((objType.op && !objType.op[0]) || !objType.op)) || (message.op === 4 && ((objType.op && !objType.op[3]) || !objType.op))) {
             return false;

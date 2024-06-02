@@ -17,8 +17,12 @@ export default class OpHeldHandler extends MessageHandler<OpHeld> {
             return false;
         }
 
-        const type = ObjType.get(item);
-        if (message.op !== 5 && ((type.iop && !type.iop[message.op - 1]) || !type.iop)) {
+        const objType = ObjType.get(item);
+        if (!objType) {
+            return false;
+        }
+
+        if (message.op !== 5 && ((objType.iop && !objType.iop[message.op - 1]) || !objType.iop)) {
             return false;
         }
 
@@ -55,12 +59,12 @@ export default class OpHeldHandler extends MessageHandler<OpHeld> {
             trigger = ServerTriggerType.OPHELD5;
         }
 
-        const script = ScriptProvider.getByTrigger(trigger, type.id, type.category);
+        const script = ScriptProvider.getByTrigger(trigger, objType.id, objType.category);
         if (script) {
             player.executeScript(ScriptRunner.init(script, player), true);
         } else {
             if (Environment.LOCAL_DEV) {
-                player.messageGame(`No trigger for [${ServerTriggerType.toString(trigger)},${type.debugname}]`);
+                player.messageGame(`No trigger for [${ServerTriggerType.toString(trigger)},${objType.debugname}]`);
             }
         }
 

@@ -43,7 +43,7 @@ export default class InvType extends ConfigType {
         InvType.WORN = InvType.getId('worn');
     }
 
-    static get(id: number): InvType {
+    static get(id: number): InvType | undefined {
         return InvType.configs[id];
     }
 
@@ -51,10 +51,10 @@ export default class InvType extends ConfigType {
         return InvType.configNames.get(name) ?? -1;
     }
 
-    static getByName(name: string): InvType | null {
+    static getByName(name: string): InvType | undefined {
         const id = this.getId(name);
         if (id === -1) {
-            return null;
+            return undefined;
         }
 
         return this.get(id);

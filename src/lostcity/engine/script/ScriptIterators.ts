@@ -103,7 +103,7 @@ export class HuntIterator extends ScriptIterator<Entity> {
                             continue;
                         }
                         const npcType = NpcType.get(npc.type);
-                        if (!npcType.op) {
+                        if (!npcType || !npcType.op) {
                             continue;
                         }
                         if (!npcType.op[1]) {

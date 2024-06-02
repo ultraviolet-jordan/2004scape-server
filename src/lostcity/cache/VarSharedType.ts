@@ -31,7 +31,7 @@ export default class VarSharedType extends ConfigType {
         }
     }
 
-    static get(id: number): VarSharedType {
+    static get(id: number): VarSharedType | undefined {
         return VarSharedType.configs[id];
     }
 
@@ -39,10 +39,10 @@ export default class VarSharedType extends ConfigType {
         return VarSharedType.configNames.get(name) ?? -1;
     }
 
-    static getByName(name: string): VarSharedType | null {
+    static getByName(name: string): VarSharedType | undefined {
         const id = this.getId(name);
         if (id === -1) {
-            return null;
+            return undefined;
         }
 
         return this.get(id);

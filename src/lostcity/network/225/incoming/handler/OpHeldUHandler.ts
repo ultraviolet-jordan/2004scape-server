@@ -58,7 +58,14 @@ export default class OpHeldUHandler extends MessageHandler<OpHeldU> {
         player.lastUseSlot = useSlot;
 
         const objType = ObjType.get(player.lastItem);
+        if (!objType) {
+            return false;
+        }
+
         const useObjType = ObjType.get(player.lastUseItem);
+        if (!useObjType) {
+            return false;
+        }
 
         if ((objType.members || useObjType.members) && !World.members) {
             player.messageGame("To use player item please login to a members' server.");

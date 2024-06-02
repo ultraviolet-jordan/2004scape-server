@@ -85,7 +85,12 @@ export default class ClientCheatHandler extends MessageHandler<ClientCheat> {
                 return false;
             }
 
-            player.invAdd(InvType.INV, obj, count, false);
+            const inv = InvType.get(InvType.INV);
+            if (!inv) {
+                return false;
+            }
+
+            player.invAdd(inv, obj, count, false);
         } else if (cmd === 'givecrap') {
             // todo find a real usage to be able to write this
         } else if (cmd === 'givemany') {

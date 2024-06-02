@@ -786,7 +786,7 @@ class World {
             // Increase or Decrease shop stock
             const invType = InvType.get(inv.type);
 
-            if (!invType.restock || !invType.stockcount || !invType.stockrate) {
+            if (!invType || !invType.restock || !invType.stockcount || !invType.stockrate) {
                 continue;
             }
 
@@ -1016,7 +1016,7 @@ class World {
 
         const type = NpcType.get(npc.type);
         npc.despawn = this.currentTick;
-        npc.respawn = this.currentTick + type.respawnrate;
+        npc.respawn = this.currentTick + (type?.respawnrate ?? 100);
 
         if (!npc.static) {
             this.npcs.remove(npc.nid);
@@ -1043,8 +1043,8 @@ class World {
         const zone = this.getZone(loc.x, loc.z, loc.level);
         zone.addLoc(loc, duration);
 
-        const type = LocType.get(loc.type);
-        if (type.blockwalk) {
+        const type: LocType | undefined = LocType.get(loc.type);
+        if (type && type.blockwalk) {
             this.collisionManager.changeLocCollision(loc.shape, loc.angle, type.blockrange, type.length, type.width, type.active, loc.x, loc.z, loc.level, true);
         }
 
@@ -1069,8 +1069,8 @@ class World {
         const zone = this.getZone(loc.x, loc.z, loc.level);
         zone.removeLoc(loc, duration);
 
-        const type = LocType.get(loc.type);
-        if (type.blockwalk) {
+        const type: LocType | undefined = LocType.get(loc.type);
+        if (type && type.blockwalk) {
             this.collisionManager.changeLocCollision(loc.shape, loc.angle, type.blockrange, type.length, type.width, type.active, loc.x, loc.z, loc.level, false);
         }
 
@@ -1098,7 +1098,7 @@ class World {
         if (!global && existing && existing.id == obj.id) {
             const type = ObjType.get(obj.type);
             const nextCount = obj.count + existing.count;
-            if (type.stackable && nextCount <= Inventory.STACK_LIMIT) {
+            if (type && type.stackable && nextCount <= Inventory.STACK_LIMIT) {
                 // if an obj of the same type exists and is stackable, then we merge them.
                 obj.count = nextCount;
                 zone.removeObj(existing, receiver);
@@ -1128,7 +1128,7 @@ class World {
         const zone = this.getZone(obj.x, obj.z, obj.level);
         zone.removeObj(obj, receiver);
         obj.despawn = this.currentTick;
-        obj.respawn = this.currentTick + ObjType.get(obj.type).respawnrate;
+        obj.respawn = this.currentTick + (ObjType.get(obj.type)?.respawnrate ?? 100);
         if (zone.staticObjs.includes(obj)) {
             let future = this.futureUpdates.get(obj.respawn);
             if (!future) {

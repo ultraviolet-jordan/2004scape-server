@@ -38,7 +38,7 @@ export default class SpotanimType extends ConfigType {
         }
     }
 
-    static get(id: number): SpotanimType {
+    static get(id: number): SpotanimType | undefined {
         return SpotanimType.configs[id];
     }
 
@@ -46,10 +46,10 @@ export default class SpotanimType extends ConfigType {
         return SpotanimType.configNames.get(name) ?? -1;
     }
 
-    static getByName(name: string): SpotanimType | null {
+    static getByName(name: string): SpotanimType | undefined {
         const id = this.getId(name);
         if (id === -1) {
-            return null;
+            return undefined;
         }
 
         return this.get(id);

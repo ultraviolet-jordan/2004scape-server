@@ -34,7 +34,7 @@ export default class DbRowType extends ConfigType {
         }
     }
 
-    static get(id: number): DbRowType {
+    static get(id: number): DbRowType | undefined {
         return DbRowType.configs[id];
     }
 
@@ -42,10 +42,10 @@ export default class DbRowType extends ConfigType {
         return DbRowType.configNames.get(name) ?? -1;
     }
 
-    static getByName(name: string): DbRowType | null {
+    static getByName(name: string): DbRowType | undefined {
         const id = this.getId(name);
         if (id === -1) {
-            return null;
+            return undefined;
         }
 
         return this.get(id);
@@ -87,9 +87,14 @@ export default class DbRowType extends ConfigType {
     }
 
     getValue(column: number, listIndex: number) {
+        const tableType = DbTableType.get(this.tableId);
+        if (!tableType) {
+            throw new Error('Dbtable config not found!');
+        }
+
         const value = this.columnValues[column].slice(listIndex * this.types[column].length, (listIndex + 1) * this.types[column].length);
         if (!value.length) {
-            return DbTableType.get(this.tableId).getDefault(column);
+            return tableType.getDefault(column);
         }
 
         return value;

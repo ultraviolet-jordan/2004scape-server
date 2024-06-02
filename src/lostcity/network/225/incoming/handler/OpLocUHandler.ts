@@ -44,7 +44,12 @@ export default class OpLocUHandler extends MessageHandler<OpLocU> {
             return false;
         }
 
-        if (ObjType.get(item).members && !World.members) {
+        const objType: ObjType | undefined = ObjType.get(item);
+        if (!objType) {
+            return false;
+        }
+
+        if (objType.members && !World.members) {
             player.messageGame("To use player item please login to a members' server.");
             return false;
         }

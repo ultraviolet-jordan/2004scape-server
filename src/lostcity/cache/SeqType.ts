@@ -39,7 +39,7 @@ export default class SeqType extends ConfigType {
         }
     }
 
-    static get(id: number): SeqType {
+    static get(id: number): SeqType | undefined {
         return SeqType.configs[id];
     }
 
@@ -47,10 +47,10 @@ export default class SeqType extends ConfigType {
         return SeqType.configNames.get(name) ?? -1;
     }
 
-    static getByName(name: string): SeqType | null {
+    static getByName(name: string): SeqType | undefined {
         const id = this.getId(name);
         if (id === -1) {
-            return null;
+            return undefined;
         }
 
         return this.get(id);

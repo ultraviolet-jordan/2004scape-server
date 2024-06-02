@@ -57,7 +57,7 @@ export default class FloType extends ConfigType {
         }
     }
 
-    static get(id: number): FloType {
+    static get(id: number): FloType | undefined {
         return FloType.configs[id];
     }
 
@@ -65,10 +65,10 @@ export default class FloType extends ConfigType {
         return FloType.configNames.get(name) ?? -1;
     }
 
-    static getByName(name: string): FloType | null {
+    static getByName(name: string): FloType | undefined {
         const id = this.getId(name);
         if (id === -1) {
-            return null;
+            return undefined;
         }
 
         return this.get(id);

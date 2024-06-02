@@ -48,7 +48,7 @@ export default class LocType extends ConfigType {
         }
     }
 
-    static get(id: number): LocType {
+    static get(id: number): LocType | undefined {
         return LocType.configs[id];
     }
 
@@ -56,10 +56,10 @@ export default class LocType extends ConfigType {
         return LocType.configNames.get(name) ?? -1;
     }
 
-    static getByName(name: string): LocType | null {
+    static getByName(name: string): LocType | undefined {
         const id = this.getId(name);
-        if (id === undefined || id === -1) {
-            return null;
+        if (id === -1) {
+            return undefined;
         }
 
         return this.get(id);

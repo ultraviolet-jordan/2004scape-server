@@ -26,11 +26,14 @@ import {
     InvTypeValid,
     NpcTypeValid,
     NumberNotNull,
-    ObjTypeValid,
+    ObjTypeValid, SeqTypeValid,
     SpotAnimTypeValid,
 } from '#lostcity/engine/script/ScriptValidators.js';
 import ColorConversion from '#lostcity/util/ColorConversion.js';
 import Interaction from '#lostcity/entity/Interaction.js';
+import InvType from '#lostcity/cache/InvType.js';
+import SpotanimType from '#lostcity/cache/SpotanimType.js';
+import NpcType from '#lostcity/cache/NpcType.js';
 
 const ActivePlayer = [ScriptPointer.ActivePlayer, ScriptPointer.ActivePlayer2];
 const ProtectedActivePlayer = [ScriptPointer.ProtectedActivePlayer, ScriptPointer.ProtectedActivePlayer2];
@@ -119,19 +122,17 @@ const PlayerOps: CommandHandlers = {
     }),
 
     [ScriptOpcode.BUILDAPPEARANCE]: checkedHandler(ActivePlayer, state => {
-        const inv = check(state.popInt(), InvTypeValid);
+        const invType: InvType = check(state.popInt(), InvTypeValid);
 
-        state.activePlayer.generateAppearance(inv);
+        state.activePlayer.generateAppearance(invType.id);
     }),
 
     [ScriptOpcode.CAM_LOOKAT]: checkedHandler(ActivePlayer, state => {
         const [coord, height, rotationSpeed, rotationMultiplier] = state.popInts(4);
 
-        check(coord, CoordValid);
-
-        const pos = Position.unpackCoord(coord);
-        const localX = pos.x - Position.zoneOrigin(state.activePlayer.loadedX);
-        const localZ = pos.z - Position.zoneOrigin(state.activePlayer.loadedZ);
+        const position: Position = check(coord, CoordValid);
+        const localX = position.x - Position.zoneOrigin(state.activePlayer.loadedX);
+        const localZ = position.z - Position.zoneOrigin(state.activePlayer.loadedZ);
 
         state.activePlayer.writeLowPriority(ServerProt.CAM_LOOKAT, localX, localZ, height, rotationSpeed, rotationMultiplier);
     }),
@@ -139,11 +140,9 @@ const PlayerOps: CommandHandlers = {
     [ScriptOpcode.CAM_MOVETO]: checkedHandler(ActivePlayer, state => {
         const [coord, height, rotationSpeed, rotationMultiplier] = state.popInts(4);
 
-        check(coord, CoordValid);
-
-        const pos = Position.unpackCoord(coord);
-        const localX = pos.x - Position.zoneOrigin(state.activePlayer.loadedX);
-        const localZ = pos.z - Position.zoneOrigin(state.activePlayer.loadedZ);
+        const position: Position = check(coord, CoordValid);
+        const localX = position.x - Position.zoneOrigin(state.activePlayer.loadedX);
+        const localZ = position.z - Position.zoneOrigin(state.activePlayer.loadedZ);
 
         state.activePlayer.writeLowPriority(ServerProt.CAM_MOVETO, localX, localZ, height, rotationSpeed, rotationMultiplier);
     }),
@@ -168,10 +167,9 @@ const PlayerOps: CommandHandlers = {
     }),
 
     [ScriptOpcode.FACESQUARE]: checkedHandler(ActivePlayer, state => {
-        const coord = check(state.popInt(), CoordValid);
+        const position: Position = check(state.popInt(), CoordValid);
 
-        const pos = Position.unpackCoord(coord);
-        state.activePlayer.faceSquare(pos.x, pos.z);
+        state.activePlayer.faceSquare(position.x, position.z);
     }),
 
     [ScriptOpcode.IF_CLOSE]: checkedHandler(ActivePlayer, state => {
@@ -376,23 +374,20 @@ const PlayerOps: CommandHandlers = {
     }),
 
     [ScriptOpcode.P_TELEJUMP]: checkedHandler(ProtectedActivePlayer, state => {
-        const coord = check(state.popInt(), CoordValid);
+        const position: Position = check(state.popInt(), CoordValid);
 
-        const pos = Position.unpackCoord(coord);
-        state.activePlayer.teleJump(pos.x, pos.z, pos.level);
+        state.activePlayer.teleJump(position.x, position.z, position.level);
     }),
 
     [ScriptOpcode.P_TELEPORT]: checkedHandler(ProtectedActivePlayer, state => {
-        const coord = check(state.popInt(), CoordValid);
+        const position: Position = check(state.popInt(), CoordValid);
 
-        const pos = Position.unpackCoord(coord);
-        state.activePlayer.teleport(pos.x, pos.z, pos.level);
+        state.activePlayer.teleport(position.x, position.z, position.level);
     }),
 
     [ScriptOpcode.P_WALK]: checkedHandler(ProtectedActivePlayer, state => {
-        const coord = check(state.popInt(), CoordValid);
+        const pos: Position = check(state.popInt(), CoordValid);
 
-        const pos = Position.unpackCoord(coord);
         const player = state.activePlayer;
         player.queueWaypoints(findPath(player.level, player.x, player.z, pos.x, pos.z, player.width, player.width, player.length, player.orientation));
         player.updateMovement(false); // try to walk immediately
@@ -453,9 +448,9 @@ const PlayerOps: CommandHandlers = {
     [ScriptOpcode.SPOTANIM_PL]: checkedHandler(ActivePlayer, state => {
         const delay = state.popInt();
         const height = state.popInt();
-        const spotanim = check(state.popInt(), SpotAnimTypeValid);
+        const spotanimType: SpotanimType = check(state.popInt(), SpotAnimTypeValid);
 
-        state.activePlayer.spotanim(spotanim, height, delay);
+        state.activePlayer.spotanim(spotanimType.id, height, delay);
     }),
 
     [ScriptOpcode.STAT_HEAL]: checkedHandler(ActivePlayer, state => {
@@ -603,9 +598,9 @@ const PlayerOps: CommandHandlers = {
         const [com, npc] = state.popInts(2);
 
         check(com, NumberNotNull);
-        check(npc, NpcTypeValid);
+        const npcType: NpcType = check(npc, NpcTypeValid);
 
-        state.activePlayer.writeLowPriority(ServerProt.IF_SETNPCHEAD, com, npc);
+        state.activePlayer.writeLowPriority(ServerProt.IF_SETNPCHEAD, com, npcType.id);
     }),
 
     [ScriptOpcode.IF_SETPOSITION]: checkedHandler(ActivePlayer, state => {
@@ -708,9 +703,8 @@ const PlayerOps: CommandHandlers = {
     [ScriptOpcode.HINT_COORD]: state => {
         const [offset, coord, height] = state.popInts(3);
 
-        check(coord, CoordValid);
+        const pos: Position = check(coord, CoordValid);
 
-        const pos = Position.unpackCoord(coord);
         state.activePlayer.hintTile(offset, pos.x, pos.z, height);
     },
 
@@ -725,8 +719,8 @@ const PlayerOps: CommandHandlers = {
     [ScriptOpcode.P_EXACTMOVE]: checkedHandler(ProtectedActivePlayer, state => {
         const [start, end, startCycle, endCycle, direction] = state.popInts(5);
 
-        const startPos = Position.unpackCoord(check(start, CoordValid));
-        const endPos = Position.unpackCoord(check(end, CoordValid));
+        const startPos: Position = check(start, CoordValid);
+        const endPos: Position = check(end, CoordValid);
 
         state.activePlayer.unsetMapFlag();
         state.activePlayer.exactMove(startPos.x, startPos.z, endPos.x, endPos.z, startCycle, endCycle, direction);
@@ -757,17 +751,11 @@ const PlayerOps: CommandHandlers = {
     [ScriptOpcode.P_LOCMERGE]: checkedHandler(ProtectedActivePlayer, state => {
         const [startCycle, endCycle, southEast, northWest] = state.popInts(4);
 
-        const se = Position.unpackCoord(check(southEast, CoordValid));
-        const nw = Position.unpackCoord(check(northWest, CoordValid));
-
-        const east = se.x;
-        const south = se.z;
-
-        const west = nw.x;
-        const north = nw.z;
+        const se: Position = check(southEast, CoordValid);
+        const nw: Position = check(northWest, CoordValid);
 
         const loc = state.activeLoc;
-        World.getZone(loc.x, loc.z, loc.level).mergeLoc(loc, state.activePlayer, startCycle, endCycle, south, east, north, west);
+        World.getZone(loc.x, loc.z, loc.level).mergeLoc(loc, state.activePlayer, startCycle, endCycle, se.z, se.x, nw.z, nw.x);
     }),
 
     [ScriptOpcode.LAST_LOGIN_INFO]: state => {
@@ -791,31 +779,31 @@ const PlayerOps: CommandHandlers = {
     },
 
     [ScriptOpcode.BAS_READYANIM]: state => {
-        state.activePlayer.basReadyAnim = state.popInt();
+        state.activePlayer.basReadyAnim = check(state.popInt(), SeqTypeValid).id;
     },
 
     [ScriptOpcode.BAS_TURNONSPOT]: state => {
-        state.activePlayer.basTurnOnSpot = state.popInt();
+        state.activePlayer.basTurnOnSpot = check(state.popInt(), SeqTypeValid).id;
     },
 
     [ScriptOpcode.BAS_WALK_F]: state => {
-        state.activePlayer.basWalkForward = state.popInt();
+        state.activePlayer.basWalkForward = check(state.popInt(), SeqTypeValid).id;
     },
 
     [ScriptOpcode.BAS_WALK_B]: state => {
-        state.activePlayer.basWalkBackward = state.popInt();
+        state.activePlayer.basWalkBackward = check(state.popInt(), SeqTypeValid).id;
     },
 
     [ScriptOpcode.BAS_WALK_L]: state => {
-        state.activePlayer.basWalkLeft = state.popInt();
+        state.activePlayer.basWalkLeft = check(state.popInt(), SeqTypeValid).id;
     },
 
     [ScriptOpcode.BAS_WALK_R]: state => {
-        state.activePlayer.basWalkRight = state.popInt();
+        state.activePlayer.basWalkRight = check(state.popInt(), SeqTypeValid).id;
     },
 
     [ScriptOpcode.BAS_RUNNING]: state => {
-        state.activePlayer.basRunning = state.popInt();
+        state.activePlayer.basRunning = check(state.popInt(), SeqTypeValid).id;
     },
 
     [ScriptOpcode.GENDER]: state => {
@@ -917,11 +905,10 @@ const PlayerOps: CommandHandlers = {
     },
 
     [ScriptOpcode.HEALENERGY]: state => {
-        const amount = state.popInt(); // 100=1%, 1000=10%, 10000=100%
+        const amount = check(state.popInt(), NumberNotNull); // 100=1%, 1000=10%, 10000=100%
 
         const player = state.activePlayer;
-        const energy = Math.min(Math.max(player.runenergy + amount, 0), 10000);
-        player.runenergy = energy;
+        player.runenergy = Math.min(Math.max(player.runenergy + amount, 0), 10000);
     },
 
     [ScriptOpcode.AFK_EVENT]: state => {
@@ -936,15 +923,13 @@ const PlayerOps: CommandHandlers = {
     [ScriptOpcode.SETIDKIT]: (state) => {
         const [idkit, color] = state.popInts(2);
 
-        check(idkit, IDKTypeValid);
-
-        const idk = IdkType.get(idkit);
+        const idk: IdkType = check(idkit, IDKTypeValid);
 
         let slot = idk.type;
         if (state.activePlayer.gender === 1) {
             slot -= 7;
         }
-        state.activePlayer.body[slot] = idkit;
+        state.activePlayer.body[slot] = idk.id;
 
         // 0 - hair
         // 1 - torso

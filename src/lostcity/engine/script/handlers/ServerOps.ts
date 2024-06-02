@@ -1,5 +1,4 @@
 import FontType from '#lostcity/cache/FontType.js';
-import LocType from '#lostcity/cache/LocType.js';
 import MesanimType from '#lostcity/cache/MesanimType.js';
 import { ParamHelper } from '#lostcity/cache/ParamHelper.js';
 import ParamType from '#lostcity/cache/ParamType.js';
@@ -17,6 +16,8 @@ import {HuntIterator} from '#lostcity/engine/script/ScriptIterators.js';
 import { Position } from '#lostcity/entity/Position.js';
 import HuntModeType from '#lostcity/entity/hunt/HuntModeType.js';
 import Player from '#lostcity/entity/Player.js';
+import HuntVis from '#lostcity/entity/hunt/HuntVis.js';
+import SpotanimType from '#lostcity/cache/SpotanimType.js';
 
 import {
     CollisionFlag,
@@ -30,10 +31,12 @@ import {
 
 import {
     check,
-    CoordValid,
+    CoordValid, FontTypeValid,
     HuntVisValid,
-    NumberNotNull,
-    SpotAnimTypeValid
+    LocTypeValid, MesanimValid,
+    NumberNotNull, ParamTypeValid,
+    SeqTypeValid,
+    SpotAnimTypeValid, StructTypeValid
 } from '#lostcity/engine/script/ScriptValidators.js';
 import Npc from '#lostcity/entity/Npc.js';
 
@@ -52,8 +55,8 @@ const ServerOps: CommandHandlers = {
     [ScriptOpcode.MAP_PLAYERCOUNT]: state => {
         const [c1, c2] = state.popInts(2);
 
-        const from = Position.unpackCoord(check(c1, CoordValid));
-        const to = Position.unpackCoord(check(c2, CoordValid));
+        const from: Position = check(c1, CoordValid);
+        const to: Position = check(c2, CoordValid);
     
         let count = 0;
         for (let x = Math.floor(from.x / 8); x <= Math.ceil(to.x / 8); x++) {
@@ -77,13 +80,11 @@ const ServerOps: CommandHandlers = {
     [ScriptOpcode.HUNTALL]: state => {
         const [coord, distance, checkVis] = state.popInts(3);
 
-        check(coord, CoordValid);
+        const position: Position = check(coord, CoordValid);
         check(distance, NumberNotNull);
-        check(checkVis, HuntVisValid);
+        const huntvis: HuntVis = check(checkVis, HuntVisValid);
 
-        const {level, x, z} = Position.unpackCoord(coord);
-
-        state.huntIterator = new HuntIterator(World.currentTick, level, x, z, distance, checkVis, HuntModeType.PLAYER);
+        state.huntIterator = new HuntIterator(World.currentTick, position.level, position.x, position.z, distance, huntvis, HuntModeType.PLAYER);
     },
 
     [ScriptOpcode.HUNTNEXT]: state => {
@@ -105,13 +106,11 @@ const ServerOps: CommandHandlers = {
     [ScriptOpcode.NPC_HUNTALL]: state => {
         const [coord, distance, checkVis] = state.popInts(3);
 
-        check(coord, CoordValid);
+        const position: Position = check(coord, CoordValid);
         check(distance, NumberNotNull);
-        check(checkVis, HuntVisValid);
+        const huntvis: HuntVis = check(checkVis, HuntVisValid);
 
-        const {level, x, z} = Position.unpackCoord(coord);
-
-        state.huntIterator = new HuntIterator(World.currentTick, level, x, z, distance, checkVis, HuntModeType.NPC);
+        state.huntIterator = new HuntIterator(World.currentTick, position.level, position.x, position.z, distance, huntvis, HuntModeType.NPC);
     },
 
     [ScriptOpcode.NPC_HUNTNEXT]: state => {
@@ -133,9 +132,9 @@ const ServerOps: CommandHandlers = {
     [ScriptOpcode.INZONE]: state => {
         const [c1, c2, c3] = state.popInts(3);
 
-        const from = Position.unpackCoord(check(c1, CoordValid));
-        const to = Position.unpackCoord(check(c2, CoordValid));
-        const pos = Position.unpackCoord(check(c3, CoordValid));
+        const from: Position = check(c1, CoordValid);
+        const to: Position = check(c2, CoordValid);
+        const pos: Position = check(c3, CoordValid);
 
         if (pos.x < from.x || pos.x > to.x) {
             state.pushInt(0);
@@ -151,8 +150,8 @@ const ServerOps: CommandHandlers = {
     [ScriptOpcode.LINEOFWALK]: state => {
         const [c1, c2] = state.popInts(2);
 
-        const from = Position.unpackCoord(check(c1, CoordValid));
-        const to = Position.unpackCoord(check(c2, CoordValid));
+        const from: Position = check(c1, CoordValid);
+        const to: Position = check(c2, CoordValid);
 
         state.pushInt(hasLineOfWalk(from.level, from.x, from.z, to.x, to.z, 1, 1, 1, 1) ? 1 : 0);
     },
@@ -169,43 +168,37 @@ const ServerOps: CommandHandlers = {
     [ScriptOpcode.SPOTANIM_MAP]: state => {
         const [spotanim, coord, height, delay] = state.popInts(4);
 
-        check(spotanim, SpotAnimTypeValid);
+        const position: Position = check(coord, CoordValid);
+        const spotanimType: SpotanimType = check(spotanim, SpotAnimTypeValid);
 
-        const {level, x, z} = Position.unpackCoord(check(coord, CoordValid));
-
-        World.getZone(x, z, level).animMap(x, z, spotanim, height, delay);
+        World.getZone(position.x, position.z, position.level).animMap(position.x, position.z, spotanimType.id, height, delay);
     },
 
     [ScriptOpcode.DISTANCE]: state => {
         const [c1, c2] = state.popInts(2);
 
-        const from = Position.unpackCoord(check(c1, CoordValid));
-        const to = Position.unpackCoord(check(c2, CoordValid));
-
-        const dx = Math.abs(from.x - to.x);
-        const dz = Math.abs(from.z - to.z);
-
-        state.pushInt(Math.max(dx, dz));
+        state.pushInt(Position.distanceToSW(check(c1, CoordValid), check(c2, CoordValid)));
     },
 
     [ScriptOpcode.MOVECOORD]: state => {
         const [coord, x, y, z] = state.popInts(4);
 
-        const pos = Position.unpackCoord(check(coord, CoordValid));
-        state.pushInt(Position.packCoord(pos.level + y, pos.x + x, pos.z + z));
+        const position: Position = check(coord, CoordValid);
+        state.pushInt(Position.packCoord(position.level + y, position.x + x, position.z + z));
     },
 
     [ScriptOpcode.SEQLENGTH]: state => {
-        const seq = state.popInt();
+        const seqType: SeqType = check(state.popInt(), SeqTypeValid);
 
-        state.pushInt(SeqType.get(seq).duration);
+        state.pushInt(seqType.duration);
     },
 
     [ScriptOpcode.SPLIT_INIT]: state => {
         const [maxWidth, linesPerPage, fontId, mesanimId] = state.popInts(4);
-        const text = state.popString();
-        const font = FontType.get(fontId);
-        const lines = font.split(text, maxWidth);
+        const text: string = state.popString();
+
+        const font: FontType = check(fontId, FontTypeValid);
+        const lines: string[] = font.split(text, maxWidth);
 
         state.splitPages = [];
         state.splitMesanim = mesanimId;
@@ -237,34 +230,35 @@ const ServerOps: CommandHandlers = {
             return;
         }
 
-        const mesanimType = MesanimType.get(state.splitMesanim);
+        const mesanimType: MesanimType = check(state.splitMesanim, MesanimValid);
         state.pushInt(mesanimType.len[state.splitPages[page].length - 1]);
     },
 
     [ScriptOpcode.STRUCT_PARAM]: state => {
         const [structId, paramId] = state.popInts(2);
-        const param = ParamType.get(paramId);
-        const struct = StructType.get(structId);
-        if (param.isString()) {
-            state.pushString(ParamHelper.getStringParam(paramId, struct, param.defaultString));
+
+        const paramType: ParamType = check(paramId, ParamTypeValid);
+        const structType: StructType = check(structId, StructTypeValid);
+        if (paramType.isString()) {
+            state.pushString(ParamHelper.getStringParam(paramType.id, structType, paramType.defaultString));
         } else {
-            state.pushInt(ParamHelper.getIntParam(paramId, struct, param.defaultInt));
+            state.pushInt(ParamHelper.getIntParam(paramType.id, structType, paramType.defaultInt));
         }
     },
 
     [ScriptOpcode.COORDX]: state => {
-        const coord = check(state.popInt(), CoordValid);
-        state.pushInt(Position.unpackCoord(coord).x);
+        const position: Position = check(state.popInt(), CoordValid);
+        state.pushInt(position.x);
     },
 
     [ScriptOpcode.COORDY]: state => {
-        const coord = check(state.popInt(), CoordValid);
-        state.pushInt(Position.unpackCoord(coord).level);
+        const position: Position = check(state.popInt(), CoordValid);
+        state.pushInt(position.level);
     },
 
     [ScriptOpcode.COORDZ]: state => {
-        const coord = check(state.popInt(), CoordValid);
-        state.pushInt(Position.unpackCoord(coord).z);
+        const position: Position = check(state.popInt(), CoordValid);
+        state.pushInt(position.z);
     },
 
     [ScriptOpcode.PLAYERCOUNT]: state => {
@@ -272,24 +266,22 @@ const ServerOps: CommandHandlers = {
     },
 
     [ScriptOpcode.MAP_BLOCKED]: state => {
-        const coord = check(state.popInt(), CoordValid);
+        const position: Position = check(state.popInt(), CoordValid);
 
-        const pos = Position.unpackCoord(coord);
-        state.pushInt(isFlagged(pos.x, pos.z, pos.level, CollisionFlag.WALK_BLOCKED) ? 1 : 0);
+        state.pushInt(isFlagged(position.x, position.z, position.level, CollisionFlag.WALK_BLOCKED) ? 1 : 0);
     },
 
     [ScriptOpcode.MAP_INDOORS]: state => {
-        const coord = check(state.popInt(), CoordValid);
+        const position: Position = check(state.popInt(), CoordValid);
 
-        const pos = Position.unpackCoord(coord);
-        state.pushInt(isFlagged(pos.x, pos.z, pos.level, CollisionFlag.ROOF) ? 1 : 0);
+        state.pushInt(isFlagged(position.x, position.z, position.level, CollisionFlag.ROOF) ? 1 : 0);
     },
 
     [ScriptOpcode.LINEOFSIGHT]: state => {
         const [c1, c2] = state.popInts(2);
 
-        const from = Position.unpackCoord(check(c1, CoordValid));
-        const to = Position.unpackCoord(check(c2, CoordValid));
+        const from: Position = check(c1, CoordValid);
+        const to: Position = check(c2, CoordValid);
 
         state.pushInt(hasLineOfSight(from.level, from.x, from.z, to.x, to.z, 1, 1, 1, 1) ? 1 : 0);
     },
@@ -300,26 +292,24 @@ const ServerOps: CommandHandlers = {
     },
 
     [ScriptOpcode.PROJANIM_PL]: state => {
-        const [srcCoord, uid, spotanim, srcHeight, dstHeight, delay, duration, peak, arc] = state.popInts(9);
+        const [coord, uid, spotanim, srcHeight, dstHeight, delay, duration, peak, arc] = state.popInts(9);
 
-        check(srcCoord, CoordValid);
-        check(spotanim, SpotAnimTypeValid);
+        const position: Position = check(coord, CoordValid);
+        const spotanimType: SpotanimType = check(spotanim, SpotAnimTypeValid);
 
         const player = World.getPlayerByUid(uid);
         if (!player) {
             throw new Error(`attempted to use invalid player uid: ${uid}`);
         }
 
-        const srcPos = Position.unpackCoord(srcCoord);
-        const zone = World.getZone(srcPos.x, srcPos.z, srcPos.level);
-        zone.mapProjAnim(srcPos.x, srcPos.z, player.x, player.z, -player.pid - 1, spotanim, srcHeight + 100, dstHeight + 100, delay, duration, peak, arc);
+        World.getZone(position.x, position.z, position.level).mapProjAnim(position.x, position.z, player.x, player.z, -player.pid - 1, spotanimType.id, srcHeight + 100, dstHeight + 100, delay, duration, peak, arc);
     },
 
     [ScriptOpcode.PROJANIM_NPC]: state => {
-        const [srcCoord, npcUid, spotanim, srcHeight, dstHeight, delay, duration, peak, arc] = state.popInts(9);
+        const [coord, npcUid, spotanim, srcHeight, dstHeight, delay, duration, peak, arc] = state.popInts(9);
 
-        check(srcCoord, CoordValid);
-        check(spotanim, SpotAnimTypeValid);
+        const position: Position = check(coord, CoordValid);
+        const spotanimType: SpotanimType = check(spotanim, SpotAnimTypeValid);
 
         const slot = npcUid & 0xffff;
         const expectedType = (npcUid >> 16) & 0xffff;
@@ -329,33 +319,28 @@ const ServerOps: CommandHandlers = {
             throw new Error(`attempted to use invalid npc uid: ${npcUid}`);
         }
 
-        const srcPos = Position.unpackCoord(srcCoord);
-        const zone = World.getZone(srcPos.x, srcPos.z, srcPos.level);
-        zone.mapProjAnim(srcPos.x, srcPos.z, npc.x, npc.z, npc.nid + 1, spotanim, srcHeight + 100, dstHeight + 100, delay, duration, peak, arc);
+        World.getZone(position.x, position.z, position.level).mapProjAnim(position.x, position.z, npc.x, npc.z, npc.nid + 1, spotanimType.id, srcHeight + 100, dstHeight + 100, delay, duration, peak, arc);
     },
 
     [ScriptOpcode.PROJANIM_MAP]: state => {
         const [srcCoord, dstCoord, spotanim, srcHeight, dstHeight, delay, duration, peak, arc] = state.popInts(9);
 
-        check(spotanim, SpotAnimTypeValid);
+        const spotanimType: SpotanimType = check(spotanim, SpotAnimTypeValid);
 
-        const srcPos = Position.unpackCoord(check(srcCoord, CoordValid));
-        const dstPos = Position.unpackCoord(check(dstCoord, CoordValid));
-        const zone = World.getZone(srcPos.x, srcPos.z, srcPos.level);
-        zone.mapProjAnim(srcPos.x, srcPos.z, dstPos.x, dstPos.z, 0, spotanim, srcHeight + 100, dstHeight, delay, duration, peak, arc);
+        const srcPos: Position = check(srcCoord, CoordValid);
+        const dstPos: Position = check(dstCoord, CoordValid);
+        World.getZone(srcPos.x, srcPos.z, srcPos.level).mapProjAnim(srcPos.x, srcPos.z, dstPos.x, dstPos.z, 0, spotanimType.id, srcHeight + 100, dstHeight, delay, duration, peak, arc);
     },
 
     [ScriptOpcode.MAP_LOCADDUNSAFE]: state => {
-        const coord = check(state.popInt(), CoordValid);
-
-        const pos = Position.unpackCoord(coord);
+        const pos: Position = check(state.popInt(), CoordValid);
 
         const zone = World.getZone(pos.x, pos.z, pos.level);
         const locs = zone.staticLocs.concat(zone.locs);
 
         for (let index = 0; index < locs.length; index++) {
             const loc = locs[index];
-            const type = LocType.get(loc.type);
+            const type = check(loc.type, LocTypeValid);
 
             if (type.active !== 1) {
                 continue;

@@ -33,7 +33,7 @@ export default class ParamType extends ConfigType {
         }
     }
 
-    static get(id: number): ParamType {
+    static get(id: number): ParamType | undefined {
         return ParamType.configs[id];
     }
 
@@ -41,10 +41,10 @@ export default class ParamType extends ConfigType {
         return ParamType.configNames.get(name) ?? -1;
     }
 
-    static getByName(name: string): ParamType | null {
+    static getByName(name: string): ParamType | undefined {
         const id = this.getId(name);
         if (id === -1) {
-            return null;
+            return undefined;
         }
 
         return this.get(id);

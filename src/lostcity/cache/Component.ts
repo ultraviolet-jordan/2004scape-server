@@ -229,7 +229,7 @@ export default class Component {
         }
     }
 
-    static get(id: number): Component {
+    static get(id: number): Component | undefined {
         return Component.components[id];
     }
 
@@ -237,10 +237,10 @@ export default class Component {
         return Component.componentNames.get(name) ?? -1;
     }
 
-    static getByName(name: string): Component | null {
+    static getByName(name: string): Component | undefined {
         const id = this.getId(name);
         if (id === -1) {
-            return null;
+            return undefined;
         }
 
         return this.get(id);

@@ -33,7 +33,7 @@ export default class CategoryType extends ConfigType {
         }
     }
 
-    static get(id: number): CategoryType {
+    static get(id: number): CategoryType | undefined {
         return CategoryType.configs[id];
     }
 
@@ -41,10 +41,10 @@ export default class CategoryType extends ConfigType {
         return CategoryType.configNames.get(name) ?? -1;
     }
 
-    static getByName(name: string): CategoryType | null {
+    static getByName(name: string): CategoryType | undefined {
         const id = this.getId(name);
         if (id === -1) {
-            return null;
+            return undefined;
         }
 
         return this.get(id);

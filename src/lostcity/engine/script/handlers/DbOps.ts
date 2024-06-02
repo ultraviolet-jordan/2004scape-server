@@ -4,6 +4,7 @@ import ScriptVarType from '#lostcity/cache/ScriptVarType.js';
 
 import ScriptOpcode from '#lostcity/engine/script/ScriptOpcode.js';
 import { CommandHandlers } from '#lostcity/engine/script/ScriptRunner.js';
+import {check, DbRowTypeValid, DbTableTypeValid} from '#lostcity/engine/script/ScriptValidators.js';
 
 const DebugOps: CommandHandlers = {
     [ScriptOpcode.DB_FIND_WITH_COUNT]: state => {
@@ -22,8 +23,7 @@ const DebugOps: CommandHandlers = {
 
         state.dbRow++;
 
-        const row = DbRowType.get(state.dbRowQuery[state.dbRow]);
-        state.pushInt(row.id);
+        state.pushInt(check(state.dbRowQuery[state.dbRow], DbRowTypeValid).id);
     },
 
     [ScriptOpcode.DB_GETFIELD]: state => {
@@ -33,8 +33,8 @@ const DebugOps: CommandHandlers = {
         const column = (tableColumnPacked >> 4) & 0x7f;
         const tuple = tableColumnPacked & 0x3f;
 
-        const rowType = DbRowType.get(row);
-        const tableType = DbTableType.get(table);
+        const rowType: DbRowType = check(row, DbRowTypeValid);
+        const tableType: DbTableType = check(table, DbTableTypeValid);
 
         let values: (string | number)[];
         if (rowType.tableId !== table) {
@@ -60,8 +60,8 @@ const DebugOps: CommandHandlers = {
         const column = (tableColumnPacked >> 4) & 0x7f;
         const tuple = tableColumnPacked & 0x3f;
 
-        const rowType = DbRowType.get(row);
-        const tableType = DbTableType.get(table);
+        const rowType: DbRowType = check(row, DbRowTypeValid);
+        const tableType: DbTableType = check(table, DbTableTypeValid);
 
         if (rowType.tableId !== table) {
             state.pushInt(0);
@@ -76,8 +76,7 @@ const DebugOps: CommandHandlers = {
     },
 
     [ScriptOpcode.DB_GETROWTABLE]: state => {
-        const row = state.popInt();
-        const rowType = DbRowType.get(row);
+        const rowType: DbRowType = check(state.popInt(), DbRowTypeValid);
 
         state.pushInt(rowType.tableId);
     },
@@ -99,7 +98,7 @@ const DebugOps: CommandHandlers = {
         const column = (tableColumnPacked >> 4) & 0x7f;
         const tuple = tableColumnPacked & 0x3f;
 
-        state.dbTable = DbTableType.get(table);
+        state.dbTable = check(table, DbTableTypeValid);
         state.dbRow = -1;
         state.dbRowQuery = [];
 

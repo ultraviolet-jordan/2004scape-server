@@ -9,17 +9,16 @@ import {check, LocTypeValid, ParamTypeValid} from '#lostcity/engine/script/Scrip
 
 const LocConfigOps: CommandHandlers = {
     [ScriptOpcode.LC_NAME]: state => {
-        const locId = check(state.popInt(), LocTypeValid);
+        const locType: LocType = check(state.popInt(), LocTypeValid);
 
-        const locType = LocType.get(locId);
         state.pushString(locType.name ?? locType.debugname ?? 'null');
     },
 
     [ScriptOpcode.LC_PARAM]: state => {
         const [locId, paramId] = state.popInts(2);
 
-        const locType = LocType.get(check(locId, LocTypeValid));
-        const paramType = ParamType.get(check(paramId, ParamTypeValid));
+        const locType: LocType = check(locId, LocTypeValid);
+        const paramType: ParamType = check(paramId, ParamTypeValid);
         if (paramType.isString()) {
             state.pushString(ParamHelper.getStringParam(paramId, locType, paramType.defaultString));
         } else {
@@ -28,38 +27,33 @@ const LocConfigOps: CommandHandlers = {
     },
 
     [ScriptOpcode.LC_CATEGORY]: state => {
-        const locId = check(state.popInt(), LocTypeValid);
+        const locType: LocType = check(state.popInt(), LocTypeValid);
 
-        const locType = LocType.get(locId);
         state.pushInt(locType.category);
     },
 
     [ScriptOpcode.LC_DESC]: state => {
-        const locId = check(state.popInt(), LocTypeValid);
+        const locType: LocType = check(state.popInt(), LocTypeValid);
 
-        const locType = LocType.get(locId);
         state.pushString(locType.desc ?? 'null');
     },
 
     [ScriptOpcode.LC_DEBUGNAME]: state => {
-        const locId = check(state.popInt(), LocTypeValid);
+        const locType: LocType = check(state.popInt(), LocTypeValid);
 
-        const locType = LocType.get(locId);
         state.pushString(locType.debugname ?? 'null');
     },
 
     [ScriptOpcode.LC_WIDTH]: state => {
-        const locId = check(state.popInt(), LocTypeValid);
+        const locType: LocType = check(state.popInt(), LocTypeValid);
 
-        const locType = LocType.get(locId);
-        state.pushInt(locType.width ?? 0);
+        state.pushInt(locType.width);
     },
 
     [ScriptOpcode.LC_LENGTH]: state => {
-        const locId = check(state.popInt(), LocTypeValid);
+        const locType: LocType = check(state.popInt(), LocTypeValid);
 
-        const locType = LocType.get(locId);
-        state.pushInt(locType.length ?? 0);
+        state.pushInt(locType.length);
     }
 };
 

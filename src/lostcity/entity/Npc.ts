@@ -94,6 +94,9 @@ export default class Npc extends PathingEntity {
         this.origType = type;
 
         const npcType = NpcType.get(type);
+        if (!npcType) {
+            throw new Error(`[Npc] config not found for npc: ${type}!`);
+        }
 
         this.levels = new Uint8Array(6);
         this.baseLevels = new Uint8Array(6);
@@ -146,11 +149,17 @@ export default class Npc extends PathingEntity {
 
     getVar(id: number) {
         const varn = VarNpcType.get(id);
+        if (!varn) {
+            return null;
+        }
         return varn.type === ScriptVarType.STRING ? this.varsString[varn.id] : this.vars[varn.id];
     }
 
     setVar(id: number, value: number | string) {
         const varn = VarNpcType.get(id);
+        if (!varn) {
+            return;
+        }
 
         if (varn.type === ScriptVarType.STRING && typeof value === 'string') {
             this.varsString[varn.id] = value;
@@ -172,14 +181,16 @@ export default class Npc extends PathingEntity {
             this.resetHeroPoints();
             this.defaultMode();
 
-            const npcType: NpcType = NpcType.get(this.type);
-            this.huntrange = npcType.huntrange;
+            this.huntrange = NpcType.get(this.type)?.huntrange ?? 5;
         }
         super.resetPathingEntity();
     }
 
     updateMovement(repathAllowed: boolean = true): boolean {
         const type = NpcType.get(this.type);
+        if (!type) {
+            return false;
+        }
         if (type.moverestrict === MoveRestrict.NOMOVE) {
             return false;
         }
@@ -189,7 +200,6 @@ export default class Npc extends PathingEntity {
         }
 
         if (this.walktrigger !== -1) {
-            const type = NpcType.get(this.type);
             const script = ScriptProvider.getByTrigger(ServerTriggerType.AI_QUEUE1 + this.walktrigger, type.id, type.category);
             this.walktrigger = -1;
 
@@ -273,9 +283,11 @@ export default class Npc extends PathingEntity {
             this.timerClock = 0;
 
             const type = NpcType.get(this.type);
-            const script = ScriptProvider.getByTrigger(ServerTriggerType.AI_TIMER, type.id, type.category);
-            if (script) {
-                this.executeScript(ScriptRunner.init(script, this));
+            if (type) {
+                const script = ScriptProvider.getByTrigger(ServerTriggerType.AI_TIMER, type.id, type.category);
+                if (script) {
+                    this.executeScript(ScriptRunner.init(script, this));
+                }
             }
         }
     }
@@ -344,15 +356,14 @@ export default class Npc extends PathingEntity {
     defaultMode(): void {
         this.clearInteraction();
         this.updateMovement(false);
-        const type: NpcType = NpcType.get(this.type);
-        this.targetOp = type.defaultmode;
+        this.targetOp = NpcType.get(this.type)?.defaultmode ?? NpcMode.WANDER;
         this.faceEntity = -1;
         this.mask |= Npc.FACE_ENTITY;
     }
 
     wanderMode(): void {
         const type = NpcType.get(this.type);
-        if (type.moverestrict !== MoveRestrict.NOMOVE && Math.random() < 0.125) {
+        if (type && type.moverestrict !== MoveRestrict.NOMOVE && Math.random() < 0.125) {
             this.randomWalk(type.wanderrange);
         }
         this.updateMovement(false);
@@ -360,29 +371,31 @@ export default class Npc extends PathingEntity {
 
     patrolMode(): void {
         const type = NpcType.get(this.type);
-        const patrolPoints = type.patrolCoord;
-        const patrolDelay = type.patrolDelay[this.nextPatrolPoint];
-        let dest = Position.unpackCoord(patrolPoints[this.nextPatrolPoint]);
+        if (type) {
+            const patrolPoints = type.patrolCoord;
+            const patrolDelay = type.patrolDelay[this.nextPatrolPoint];
+            let dest = Position.unpackCoord(patrolPoints[this.nextPatrolPoint]);
 
-        if (!this.hasWaypoints() && !this.target) { // requeue waypoints in cases where an npc was interacting and the interaction has been cleared
+            if (!this.hasWaypoints() && !this.target) { // requeue waypoints in cases where an npc was interacting and the interaction has been cleared
+                this.queueWaypoint(dest.x, dest.z);
+            }
+            if(!(this.x === dest.x && this.z === dest.z) && World.currentTick > this.nextPatrolTick) {
+                this.teleJump(dest.x, dest.z, dest.level);
+            }
+            if ((this.x === dest.x && this.z === dest.z) && !this.delayedPatrol) {
+                this.nextPatrolTick = World.currentTick + patrolDelay;
+                this.delayedPatrol = true;
+            }
+            if(this.nextPatrolTick > World.currentTick) {
+                return;
+            }
+
+            this.nextPatrolPoint = (this.nextPatrolPoint + 1) % patrolPoints.length;
+            this.nextPatrolTick = World.currentTick + 30; // 30 ticks until we force the npc to the next patrol coord
+            this.delayedPatrol = false;
+            dest = Position.unpackCoord(patrolPoints[this.nextPatrolPoint]); // recalc dest
             this.queueWaypoint(dest.x, dest.z);
         }
-        if(!(this.x === dest.x && this.z === dest.z) && World.currentTick > this.nextPatrolTick) {
-            this.teleJump(dest.x, dest.z, dest.level);
-        }
-        if ((this.x === dest.x && this.z === dest.z) && !this.delayedPatrol) {
-            this.nextPatrolTick = World.currentTick + patrolDelay;
-            this.delayedPatrol = true;
-        }
-        if(this.nextPatrolTick > World.currentTick) {
-            return;
-        }
-
-        this.nextPatrolPoint = (this.nextPatrolPoint + 1) % patrolPoints.length;
-        this.nextPatrolTick = World.currentTick + 30; // 30 ticks until we force the npc to the next patrol coord
-        this.delayedPatrol = false;
-        dest = Position.unpackCoord(patrolPoints[this.nextPatrolPoint]); // recalc dest
-        this.queueWaypoint(dest.x, dest.z);
         this.updateMovement(false);
     }
 
@@ -460,6 +473,10 @@ export default class Npc extends PathingEntity {
         }
 
         const type = NpcType.get(this.type);
+        if (!type) {
+            this.defaultMode();
+            return;
+        }
 
         if (Position.distanceTo(this, this.target) > type.maxrange) {
             this.defaultMode();
@@ -534,6 +551,10 @@ export default class Npc extends PathingEntity {
 
         const distanceToTarget = Position.distanceTo(this, this.target);
         const type = NpcType.get(this.type);
+        if (!type) {
+            this.defaultMode();
+            return;
+        }
 
         if (distanceToTarget > type.maxrange) {
             this.defaultMode();
@@ -741,12 +762,18 @@ export default class Npc extends PathingEntity {
     }
 
     huntAll() {
-        const type = NpcType.get(this.type);
-        const hunt = HuntType.get(this.huntMode);
-        if (hunt.type === HuntModeType.OFF) {
+        const npcType = NpcType.get(this.type);
+        if (!npcType) {
             return;
         }
-        if (!hunt.findKeepHunting && this.target !== null) {
+        const huntType = HuntType.get(this.huntMode);
+        if (!huntType) {
+            return;
+        }
+        if (huntType.type === HuntModeType.OFF) {
+            return;
+        }
+        if (!huntType.findKeepHunting && this.target !== null) {
             return;
         }
 
@@ -755,26 +782,26 @@ export default class Npc extends PathingEntity {
         }
 
         const hunted: Entity[] = [];
-        const huntAll: HuntIterator = new HuntIterator(World.currentTick, this.level, this.x, this.z, this.huntrange, hunt.checkVis, hunt.type);
+        const huntAll: HuntIterator = new HuntIterator(World.currentTick, this.level, this.x, this.z, this.huntrange, huntType.checkVis, huntType.type);
 
-        if (hunt.type === HuntModeType.PLAYER) {
+        if (huntType.type === HuntModeType.PLAYER) {
             for (const player of huntAll) {
                 if (!(player instanceof Player)) {
                     throw new Error('[Npc] huntAll must be of type Player here.');
                 }
 
                 // TODO: probably zone check to see if they're in the wilderness as well?
-                if (hunt.checkNotTooStrong === HuntCheckNotTooStrong.OUTSIDE_WILDERNESS && player.combatLevel > type.vislevel * 2) {
+                if (huntType.checkNotTooStrong === HuntCheckNotTooStrong.OUTSIDE_WILDERNESS && player.combatLevel > npcType.vislevel * 2) {
                     continue;
                 }
 
-                if (hunt.checkNotCombat !== -1 && (player.getVar(hunt.checkNotCombat) as number) + 8 > World.currentTick) {
+                if (huntType.checkNotCombat !== -1 && (player.getVar(huntType.checkNotCombat) as number) + 8 > World.currentTick) {
                     continue;
-                } else if (hunt.checkNotCombatSelf !== -1 && (this.getVar(hunt.checkNotCombatSelf) as number) >= World.currentTick) {
+                } else if (huntType.checkNotCombatSelf !== -1 && (this.getVar(huntType.checkNotCombatSelf) as number) >= World.currentTick) {
                     continue;
                 }
 
-                if (hunt.checkNotBusy && player.busy()) {
+                if (huntType.checkNotBusy && player.busy()) {
                     continue;
                 }
 
@@ -790,9 +817,9 @@ export default class Npc extends PathingEntity {
         // pick randomly from the hunted entities
         if (hunted.length > 0) {
             const entity: Entity = hunted[Math.floor(Math.random() * hunted.length)];
-            this.setInteraction(Interaction.SCRIPT, entity, hunt.findNewMode);
+            this.setInteraction(Interaction.SCRIPT, entity, huntType.findNewMode);
         }
-        this.nextHuntTick = World.currentTick + hunt.rate;
+        this.nextHuntTick = World.currentTick + huntType.rate;
     }
 
     // ----

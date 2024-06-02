@@ -11,158 +11,203 @@ import InvType from '#lostcity/cache/InvType.js';
 import CategoryType from '#lostcity/cache/CategoryType.js';
 import IdkType from '#lostcity/cache/IdkType.js';
 import HuntVis from '#lostcity/entity/hunt/HuntVis.js';
+import {LocAngle, LocShape} from '@2004scape/rsmod-pathfinder';
+import {Position} from '#lostcity/entity/Position.js';
+import {ConfigType} from '#lostcity/cache/ConfigType.js';
+import SeqType from '#lostcity/cache/SeqType.js';
+import VarPlayerType from '#lostcity/cache/VarPlayerType.js';
+import VarNpcType from '#lostcity/cache/VarNpcType.js';
+import VarSharedType from '#lostcity/cache/VarSharedType.js';
+import FontType from '#lostcity/cache/FontType.js';
+import MesanimType from '#lostcity/cache/MesanimType.js';
+import StructType from '#lostcity/cache/StructType.js';
+import DbRowType from '#lostcity/cache/DbRowType.js';
+import DbTableType from '#lostcity/cache/DbTableType.js';
 
-interface ScriptValidator<T> {
-    condition(input: T): boolean;
-    throwMessage(): string;
+interface ScriptValidator<T, R> {
+    validate(input: T): R;
 }
 
-class ScriptInputNumberNotNullValidator implements ScriptValidator<number> {
-    condition = (input: number): boolean => input !== -1;
-    throwMessage = (): string => 'An input number was null(-1).';
-}
-
-class ScriptInputStringNotNullValidator implements ScriptValidator<string> {
-    condition = (input: string): boolean => input.length > 0;
-    throwMessage = (): string => 'An input number was null(-1).';
-}
-
-class ScriptInputLocTypeValidator implements ScriptValidator<number> {
-    condition = (input: number): boolean => input >= 0 && input < LocType.count;
-    throwMessage = (): string => 'An input for a Loc type was not in a valid range which it is impossible to spawn a null Loc noob!';
-}
-
-class ScriptInputLocAngleValidator implements ScriptValidator<number> {
-    condition = (input: number): boolean => input >= 0 && input <= 3;
-    throwMessage = (): string => 'An input for a Loc angle was out of range. Range should be: 0 to 3.';
-}
-
-class ScriptInputLocShapeValidator implements ScriptValidator<number> {
-    condition = (input: number): boolean => input >= 0 && input <= 31;
-    throwMessage = (): string => 'An input for a Loc shape was out of range. Range should be: 0 to 31.';
-}
-
-class ScriptInputDurationValidator implements ScriptValidator<number> {
-    condition = (input: number): boolean => input > 0;
-    throwMessage = (): string => 'An input duration was out of range. Range should be greater than 0.';
-}
-
-class ScriptInputCoordValidator implements ScriptValidator<number> {
-    condition = (input: number): boolean => input >= 0 && input <= 0x3ffffffffff;
-    throwMessage = (): string => 'An input coord was out of range. Range should be: 0 to 4398046511103';
-}
-
-class ScriptInputParamTypeValidator implements ScriptValidator<number> {
-    condition = (input: number): boolean => input >= 0 && input < ParamType.count;
-    throwMessage = (): string => 'An input for a Param type was not in a valid range.';
-}
-
-class ScriptInputNpcTypeValidator implements ScriptValidator<number> {
-    condition = (input: number): boolean => input >= 0 && input < NpcType.count;
-    throwMessage = (): string => 'An input for a Npc type was not in a valid range.';
-}
-
-class ScriptInputNpcStatValidator implements ScriptValidator<number> {
-    condition = (input: number): boolean => input >= 0 && input < 6;
-    throwMessage = (): string => 'An input for a Npc stat was not in a valid range. Range should be: 0 to 5';
-}
-
-class ScriptInputQueueValidator implements ScriptValidator<number> {
-    condition = (input: number): boolean => input >= 0 && input < 20;
-    throwMessage = (): string => 'An input for an ai_queue was not in a valid range. Range should be: 0 to 19';
-}
-
-class ScriptInputHuntTypeValidator implements ScriptValidator<number> {
-    condition = (input: number): boolean => input >= 0 && input < HuntType.count;
-    throwMessage = (): string => 'An input for a Hunt type was not in a valid range.';
-}
-
-class ScriptInputNpcModeValidator implements ScriptValidator<number> {
-    condition = (input: number): boolean => input >= -1 && input <= NpcMode.APNPC5;
-    throwMessage = (): string => `An input for a Npc mode was not in a valid range. Range should be -1 to ${NpcMode.APNPC5}.`;
-}
-
-class ScriptInputHitTypeValidator implements ScriptValidator<number> {
-    condition = (input: number): boolean => input >= 0 && input <= 2;
-    throwMessage = (): string => 'An input for a hit type was not in a valid range. Range should be 0 to 2.';
-}
-
-class ScriptInputSpotAnimTypeValidator implements ScriptValidator<number> {
-    condition = (input: number): boolean => input >= 0 && input < SpotanimType.count;
-    throwMessage = (): string => 'An input for a SpotAnim type was not in a valid range.';
-}
-
-class ScriptInputEnumTypeValidator implements ScriptValidator<number> {
-    condition = (input: number): boolean => input >= 0 && input < EnumType.count;
-    throwMessage = (): string => 'An input for an Enum type was not in a valid range.';
-}
-
-class ScriptInputObjTypeValidator implements ScriptValidator<number> {
-    condition = (input: number): boolean => input >= 0 && input < ObjType.count;
-    throwMessage = (): string => 'An input for an Obj type was not in a valid range.';
-}
-
-class ScriptInputObjCountValidator implements ScriptValidator<number> {
-    condition = (input: number): boolean => input > 0 && input <= Inventory.STACK_LIMIT;
-    throwMessage = (): string => `An input for an Obj count was not in a valid range. Range should be: 1 to ${Inventory.STACK_LIMIT}.`;
-}
-
-class ScriptInputObjNotDummyValidator implements ScriptValidator<number> {
-    condition = (input: number): boolean => ObjType.get(input).dummyitem === 0;
-    throwMessage = (): string => 'An input for an Obj was a graphic_only dummyitem.';
-}
-
-class ScriptInputInvTypeValidator implements ScriptValidator<number> {
-    condition = (input: number): boolean => input >= 0 && input < InvType.count;
-    throwMessage = (): string => 'An input for an Inv type was not in a valid range.';
-}
-
-class ScriptInputCategoryTypeValidator implements ScriptValidator<number> {
-    condition = (input: number): boolean => input >= 0 && input < CategoryType.count;
-    throwMessage = (): string => 'An input for an Category type was not in a valid range.';
-}
-
-class ScriptInputIDKTypeValidator implements ScriptValidator<number> {
-    condition = (input: number): boolean => input >= 0 && input < IdkType.count;
-    throwMessage = (): string => 'An input for an IDK type was not in a valid range.';
-}
-
-class ScriptInputHuntVisValidator implements ScriptValidator<number> {
-    condition = (input: number): boolean => input >= HuntVis.OFF && input <= HuntVis.LINEOFWALK;
-    throwMessage = (): string => `An input for a a hunt vis was not in a valid range. Range should be: ${HuntVis.OFF} to ${HuntVis.LINEOFWALK}.`;
-}
-
-export const NumberNotNull: ScriptValidator<number> = new ScriptInputNumberNotNullValidator();
-export const StringNotNull: ScriptValidator<string> = new ScriptInputStringNotNullValidator();
-export const LocTypeValid: ScriptValidator<number> = new ScriptInputLocTypeValidator();
-export const LocAngleValid: ScriptValidator<number> = new ScriptInputLocAngleValidator();
-export const LocShapeValid: ScriptValidator<number> = new ScriptInputLocShapeValidator();
-export const DurationValid: ScriptValidator<number> = new ScriptInputDurationValidator();
-export const CoordValid: ScriptValidator<number> = new ScriptInputCoordValidator();
-export const ParamTypeValid: ScriptValidator<number> = new ScriptInputParamTypeValidator();
-export const NpcTypeValid: ScriptValidator<number> = new ScriptInputNpcTypeValidator();
-export const NpcStatValid: ScriptValidator<number> = new ScriptInputNpcStatValidator();
-export const QueueValid: ScriptValidator<number> = new ScriptInputQueueValidator();
-export const HuntTypeValid: ScriptValidator<number> = new ScriptInputHuntTypeValidator();
-export const NpcModeValid: ScriptValidator<number> = new ScriptInputNpcModeValidator();
-export const HitTypeValid: ScriptValidator<number> = new ScriptInputHitTypeValidator();
-export const SpotAnimTypeValid: ScriptValidator<number> = new ScriptInputSpotAnimTypeValidator();
-export const EnumTypeValid: ScriptValidator<number> = new ScriptInputEnumTypeValidator();
-export const ObjTypeValid: ScriptValidator<number> = new ScriptInputObjTypeValidator();
-export const ObjStackValid: ScriptValidator<number> = new ScriptInputObjCountValidator();
-export const ObjNotDummyValid: ScriptValidator<number> = new ScriptInputObjNotDummyValidator();
-export const InvTypeValid: ScriptValidator<number> = new ScriptInputInvTypeValidator();
-export const CategoryTypeValid: ScriptValidator<number> = new ScriptInputCategoryTypeValidator();
-export const IDKTypeValid: ScriptValidator<number> = new ScriptInputIDKTypeValidator();
-export const HuntVisValid: ScriptValidator<number> = new ScriptInputHuntVisValidator();
-
-export function check<T>(input: T, ...validators: ScriptValidator<T>[]): T {
-    for (let index: number = 0; index < validators.length; index++) {
-        const validator: ScriptValidator<T> = validators[index];
-        if (!validator.condition(input)) {
-            throw new Error(validator.throwMessage());
+class ScriptInputNumberNotNullValidator implements ScriptValidator<number, number> {
+    validate(input: number): number {
+        if (input !== -1) {
+            return input;
         }
+        throw Error('An input number was null(-1).');
     }
-    return input;
+}
+
+class ScriptInputStringNotNullValidator implements ScriptValidator<string, string> {
+    validate(input: string): string {
+        if (input.length > 0) {
+            return input;
+        }
+        throw Error('An input string was null(-1).');
+    }
+}
+
+class ScriptInputConfigTypeValidator<T extends ConfigType> implements ScriptValidator<number, T> {
+    private readonly type: (input: number) => T | undefined;
+    private readonly name: string;
+
+    constructor(type: (input: number) => T | undefined, name: string) {
+        this.type = type;
+        this.name = name;
+    }
+
+    validate(input: number): T {
+        const type: T | undefined = this.type(input);
+        if (type) {
+            return type;
+        }
+        throw new Error(`An input for a ${this.name} type was not valid to use. Input was ${input}.`);
+    }
+}
+
+class ScriptInputLocAngleValidator implements ScriptValidator<number, LocAngle> {
+    validate(input: number): LocAngle {
+        if (input >= LocAngle.WEST && input <= LocAngle.SOUTH) {
+            return input;
+        }
+        throw new Error(`An input for a Loc angle was out of range. Range should be: ${LocAngle.WEST} to ${LocAngle.SOUTH}.`);
+    }
+}
+
+class ScriptInputLocShapeValidator implements ScriptValidator<number, LocShape> {
+    validate(input: number): LocShape {
+        if (input >= LocShape.WALL_STRAIGHT && input <= LocShape.GROUND_DECOR) {
+            return input;
+        }
+        throw new Error(`An input for a Loc shape was out of range. Range should be: ${LocShape.WALL_STRAIGHT} to ${LocShape.GROUND_DECOR}.`);
+    }
+}
+
+class ScriptInputDurationValidator implements ScriptValidator<number, number> {
+    validate(input: number): number {
+        if (input > 0) {
+            return input;
+        }
+        throw new Error(`An input duration was out of range. Range should be greater than 0. Input was ${input}.`);
+    }
+}
+
+class ScriptInputCoordValidator implements ScriptValidator<number, Position> {
+    validate(input: number): Position {
+        if (input >= 0 && input <= 0x3ffffffffff) {
+            return Position.unpackCoord(input);
+        }
+        throw new Error(`An input coord was out of range. Range should be: 0 to 4398046511103. Input was ${input}.`);
+    }
+}
+
+class ScriptInputNpcStatValidator implements ScriptValidator<number, number> {
+    validate(input: number): number {
+        if (input >= 0 && input < 6) {
+            return input;
+        }
+        throw new Error(`An input for a Npc stat was not in a valid range. Range should be: 0 to 5. Input was ${input}.`);
+    }
+}
+
+class ScriptInputQueueValidator implements ScriptValidator<number, number> {
+    validate(input: number): number {
+        if (input >= 0 && input < 20) {
+            return input;
+        }
+        throw new Error(`An input for an ai_queue was not in a valid range. Range should be: 0 to 19. Input was ${input}.`);
+    }
+}
+
+class ScriptInputNpcModeValidator implements ScriptValidator<number, number> {
+    validate(input: number): number {
+        if (input >= NpcMode.NULL && input <= NpcMode.APNPC5) {
+            return input;
+        }
+        throw new Error(`An input for a Npc mode was not in a valid range. Range should be ${NpcMode.NULL} to ${NpcMode.APNPC5}.`);
+    }
+}
+
+class ScriptInputHitTypeValidator implements ScriptValidator<number, number> {
+    validate(input: number): number {
+        if (input >= 0 && input <= 2) {
+            return input;
+        }
+        throw new Error(`An input for a hit type was not in a valid range. Range should be 0 to 2. Input was ${input}.`);
+    }
+}
+
+class ScriptInputObjCountValidator implements ScriptValidator<number, number> {
+    validate(input: number): number {
+        if (input > 0 && input <= Inventory.STACK_LIMIT) {
+            return input;
+        }
+        throw new Error(`An input for an Obj count was not in a valid range. Range should be: 1 to ${Inventory.STACK_LIMIT}. Input was ${input}.`);
+    }
+}
+
+class ScriptInputObjNotDummyValidator implements ScriptValidator<number, number> {
+    validate(input: number): number {
+        const type: ObjType | undefined = ObjType.get(input);
+        if (type && type.dummyitem === 0) {
+            return input;
+        }
+        throw new Error(`An input for an Obj was a graphic_only dummyitem. Input was ${input}.`);
+    }
+}
+
+class ScriptInputHuntVisValidator implements ScriptValidator<number, HuntVis> {
+    validate(input: number): HuntVis {
+        if (input >= HuntVis.OFF && input <= HuntVis.LINEOFWALK) {
+            return input;
+        }
+        throw new Error(`An input for a a hunt vis was not in a valid range. Range should be: ${HuntVis.OFF} to ${HuntVis.LINEOFWALK}.`);
+    }
+}
+
+class ScriptInputFontTypeValidator implements ScriptValidator<number, FontType> {
+    validate(input: number): FontType {
+        const type: FontType | undefined = FontType.get(input);
+        if (type) {
+            return type;
+        }
+        throw new Error(`An input for a Font type was not valid to use. Input was ${input}.`);
+    }
+}
+
+export const NumberNotNull: ScriptValidator<number, number> = new ScriptInputNumberNotNullValidator();
+export const StringNotNull: ScriptValidator<string, string> = new ScriptInputStringNotNullValidator();
+export const LocTypeValid: ScriptValidator<number, LocType> = new ScriptInputConfigTypeValidator(LocType.get, 'Loc');
+export const LocAngleValid: ScriptValidator<number, LocAngle> = new ScriptInputLocAngleValidator();
+export const LocShapeValid: ScriptValidator<number, LocShape> = new ScriptInputLocShapeValidator();
+export const DurationValid: ScriptValidator<number, number> = new ScriptInputDurationValidator();
+export const CoordValid: ScriptValidator<number, Position> = new ScriptInputCoordValidator();
+export const ParamTypeValid: ScriptValidator<number, ParamType> = new ScriptInputConfigTypeValidator(ParamType.get, 'Param');
+export const NpcTypeValid: ScriptValidator<number, NpcType> = new ScriptInputConfigTypeValidator(NpcType.get, 'Npc');
+export const NpcStatValid: ScriptValidator<number, number> = new ScriptInputNpcStatValidator();
+export const QueueValid: ScriptValidator<number, number> = new ScriptInputQueueValidator();
+export const HuntTypeValid: ScriptValidator<number, HuntType> = new ScriptInputConfigTypeValidator(HuntType.get, 'Hunt');
+export const NpcModeValid: ScriptValidator<number, number> = new ScriptInputNpcModeValidator();
+export const HitTypeValid: ScriptValidator<number, number> = new ScriptInputHitTypeValidator();
+export const SpotAnimTypeValid: ScriptValidator<number, SpotanimType> = new ScriptInputConfigTypeValidator(SpotanimType.get, 'Spotanim');
+export const EnumTypeValid: ScriptValidator<number, EnumType> = new ScriptInputConfigTypeValidator(EnumType.get, 'Enum');
+export const ObjTypeValid: ScriptValidator<number, ObjType> = new ScriptInputConfigTypeValidator(ObjType.get, 'Obj');
+export const ObjStackValid: ScriptValidator<number, number> = new ScriptInputObjCountValidator();
+export const ObjNotDummyValid: ScriptValidator<number, number> = new ScriptInputObjNotDummyValidator();
+export const InvTypeValid: ScriptValidator<number, InvType> = new ScriptInputConfigTypeValidator(InvType.get, 'Inv');
+export const CategoryTypeValid: ScriptValidator<number, CategoryType> = new ScriptInputConfigTypeValidator(CategoryType.get, 'Cat');
+export const IDKTypeValid: ScriptValidator<number, IdkType> = new ScriptInputConfigTypeValidator(IdkType.get, 'Idk');
+export const HuntVisValid: ScriptValidator<number, HuntVis> = new ScriptInputHuntVisValidator();
+export const SeqTypeValid: ScriptValidator<number, SeqType> = new ScriptInputConfigTypeValidator(SeqType.get, 'Seq');
+export const VarPlayerValid: ScriptValidator<number, VarPlayerType> = new ScriptInputConfigTypeValidator(VarPlayerType.get, 'Varp');
+export const VarNpcValid: ScriptValidator<number, VarNpcType> = new ScriptInputConfigTypeValidator(VarNpcType.get, 'Varn');
+export const VarSharedValid: ScriptValidator<number, VarSharedType> = new ScriptInputConfigTypeValidator(VarSharedType.get, 'Vars');
+export const FontTypeValid: ScriptValidator<number, FontType> = new ScriptInputFontTypeValidator();
+export const MesanimValid: ScriptValidator<number, MesanimType> = new ScriptInputConfigTypeValidator(MesanimType.get, 'Mesanim');
+export const StructTypeValid: ScriptValidator<number, StructType> = new ScriptInputConfigTypeValidator(StructType.get, 'Struct');
+export const DbRowTypeValid: ScriptValidator<number, DbRowType> = new ScriptInputConfigTypeValidator(DbRowType.get, 'Dbrow');
+export const DbTableTypeValid: ScriptValidator<number, DbTableType> = new ScriptInputConfigTypeValidator(DbTableType.get, 'Dbtable');
+
+export function check<T, R>(input: T, validator: ScriptValidator<T, R>): R {
+    return validator.validate(input);
 }
 

@@ -62,6 +62,9 @@ export function generateServerSymbols() {
         }
 
         const type = InvType.get(i);
+        if (!type) {
+            continue;
+        }
         invSymbols += `${i}\t${invs[i]}\n`;
         writeInvSymbols += `${i}\t${invs[i]}\tnone\t${type.protect}\n`;
     }
@@ -123,6 +126,9 @@ export function generateServerSymbols() {
         }
 
         const com = Component.get(i);
+        if (!com) {
+            continue;
+        }
         if (coms[i].indexOf(':') !== -1) {
             comSymbols += `${i}\t${coms[i]}\n`;
         } else if (com.overlay) {
@@ -149,6 +155,9 @@ export function generateServerSymbols() {
         }
 
         const varp = VarPlayerType.get(i);
+        if (!varp) {
+            continue;
+        }
         varpSymbols += `${i}\t${varps[i]}\t${ScriptVarType.getType(varp.type)}\t${varp.protect}\n`;
     }
     fs.writeFileSync('data/symbols/varp.sym', varpSymbols);
@@ -162,6 +171,9 @@ export function generateServerSymbols() {
         }
 
         const varn = VarNpcType.get(i);
+        if (!varn) {
+            continue;
+        }
         varnSymbols += `${i}\t${varns[i]}\t${ScriptVarType.getType(varn.type)}\n`;
     }
     fs.writeFileSync('data/symbols/varn.sym', varnSymbols);
@@ -175,6 +187,9 @@ export function generateServerSymbols() {
         }
 
         const vars = VarSharedType.get(i);
+        if (!vars) {
+            continue;
+        }
         varsSymbols += `${i}\t${varss[i]}\t${ScriptVarType.getType(vars.type)}\n`;
     }
     fs.writeFileSync('data/symbols/vars.sym', varsSymbols);
@@ -189,6 +204,9 @@ export function generateServerSymbols() {
         }
 
         const config = ParamType.get(i);
+        if (!config) {
+            continue;
+        }
         paramSymbols += `${i}\t${params[i]}\t${config.getType()}\n`;
     }
     fs.writeFileSync('data/symbols/param.sym', paramSymbols);
@@ -322,10 +340,13 @@ export function generateServerSymbols() {
         if (!dbtables[i]) {
             continue;
         }
+        const table = DbTableType.get(i);
+        if (!table) {
+            continue;
+        }
 
         dbTableSymbols += `${i}\t${dbtables[i]}\n`;
 
-        const table = DbTableType.get(i);
         for (let j = 0; j < table.columnNames.length; j++) {
             const columnIndex = (table.id << 12) | (j << 4);
             const types = table.types[j].map((t: number) => ScriptVarType.getType(t)).join(',');

@@ -26,7 +26,7 @@ export default class FontType {
         FontType.instances[3] = new FontType(title, 'q8');
     }
 
-    static get(id: number) {
+    static get(id: number): FontType | undefined {
         return FontType.instances[id];
     }
 

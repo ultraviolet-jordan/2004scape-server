@@ -159,6 +159,9 @@ export default class Player extends PathingEntity {
         sav.p2(this.vars.length);
         for (let i = 0; i < this.vars.length; i++) {
             const type = VarPlayerType.get(i);
+            if (!type) {
+                continue;
+            }
 
             if (type.scope === VarPlayerType.SCOPE_PERM) {
                 sav.p4(this.vars[i]);
@@ -172,6 +175,10 @@ export default class Player extends PathingEntity {
         sav.p1(0); // placeholder for saved inventory count
         for (const [typeId, inventory] of this.invs) {
             const invType = InvType.get(typeId);
+            if (!invType) {
+                continue;
+            }
+
             if (invType.scope !== InvType.SCOPE_PERM) {
                 continue;
             }
@@ -352,6 +359,9 @@ export default class Player extends PathingEntity {
         this.writeHighPriority(ServerProt.RESET_CLIENT_VARCACHE);
         for (let varp = 0; varp < this.vars.length; varp++) {
             const type = VarPlayerType.get(varp);
+            if (!type) {
+                continue;
+            }
             const value = this.vars[varp];
 
             if (type.transmit) {
@@ -693,8 +703,8 @@ export default class Player extends PathingEntity {
         // prio trigger details by target<type<com
         if (this.target instanceof Npc || this.target instanceof Loc || this.target instanceof Obj) {
             const type = this.target instanceof Npc ? NpcType.get(this.target.type) : this.target instanceof Loc ? LocType.get(this.target.type) : ObjType.get(this.target.type);
-            typeId = type.id;
-            categoryId = type.category;
+            typeId = type?.id ?? -1;
+            categoryId = type?.category ?? -1;
         }
         if (this.targetSubject.type !== -1) {
             typeId = this.targetSubject.type;
@@ -717,8 +727,8 @@ export default class Player extends PathingEntity {
         // prio trigger details by target<type<com
         if (this.target instanceof Npc || this.target instanceof Loc || this.target instanceof Obj) {
             const type = this.target instanceof Npc ? NpcType.get(this.target.type) : this.target instanceof Loc ? LocType.get(this.target.type) : ObjType.get(this.target.type);
-            typeId = type.id;
-            categoryId = type.category;
+            typeId = type?.id ?? -1;
+            categoryId = type?.category ?? -1;
         }
         if (this.targetSubject.type !== -1) {
             typeId = this.targetSubject.type;
@@ -1226,6 +1236,9 @@ export default class Player extends PathingEntity {
             }
 
             const config = ObjType.get(equip.id);
+            if (!config) {
+                continue;
+            }
 
             if (config.wearpos2 !== -1) {
                 if (skippedSlots.indexOf(config.wearpos2) === -1) {
@@ -1667,6 +1680,9 @@ export default class Player extends PathingEntity {
                     listener.firstSeen = false;
 
                     const invType = InvType.get(listener.type);
+                    if (!invType) {
+                        continue;
+                    }
                     if (invType.runweight) {
                         runWeightChanged = true;
                     }
@@ -1711,23 +1727,18 @@ export default class Player extends PathingEntity {
         return container;
     }
 
-    invListenOnCom(inv: number, com: number, source: number) {
-        if (inv === -1) {
-            return;
-        }
-
-        const index = this.invListeners.findIndex(l => l.type === inv && l.com === com);
+    invListenOnCom(inv: InvType, com: number, source: number) {
+        const index = this.invListeners.findIndex(l => l.type === inv.id && l.com === com);
         if (index !== -1) {
             // already listening
             return;
         }
 
-        const invType = InvType.get(inv);
-        if (invType.scope === InvType.SCOPE_SHARED) {
+        if (inv.scope === InvType.SCOPE_SHARED) {
             source = -1;
         }
 
-        this.invListeners.push({ type: inv, com, source, firstSeen: true });
+        this.invListeners.push({ type: inv.id, com, source, firstSeen: true });
     }
 
     invStopListenOnCom(com: number) {
@@ -1740,8 +1751,8 @@ export default class Player extends PathingEntity {
         this.writeHighPriority(ServerProt.UPDATE_INV_STOP_TRANSMIT, com);
     }
 
-    invGetSlot(inv: number, slot: number) {
-        const container = this.getInventory(inv);
+    invGetSlot(inv: InvType, slot: number) {
+        const container = this.getInventory(inv.id);
         if (!container) {
             throw new Error('invGetSlot: Invalid inventory type: ' + inv);
         }
@@ -1753,8 +1764,8 @@ export default class Player extends PathingEntity {
         return container.get(slot);
     }
 
-    invClear(inv: number) {
-        const container = this.getInventory(inv);
+    invClear(inv: InvType) {
+        const container = this.getInventory(inv.id);
         if (!container) {
             throw new Error('invClear: Invalid inventory type: ' + inv);
         }
@@ -1762,8 +1773,8 @@ export default class Player extends PathingEntity {
         container.removeAll();
     }
 
-    invAdd(inv: number, obj: number, count: number, assureFullInsertion: boolean = true): number {
-        const container = this.getInventory(inv);
+    invAdd(inv: InvType, obj: number, count: number, assureFullInsertion: boolean = true): number {
+        const container = this.getInventory(inv.id);
         if (!container) {
             throw new Error('invAdd: Invalid inventory type: ' + inv);
         }
@@ -1772,8 +1783,8 @@ export default class Player extends PathingEntity {
         return transaction.completed;
     }
 
-    invSet(inv: number, obj: number, count: number, slot: number) {
-        const container = this.getInventory(inv);
+    invSet(inv: InvType, obj: number, count: number, slot: number) {
+        const container = this.getInventory(inv.id);
         if (!container) {
             throw new Error('invSet: Invalid inventory type: ' + inv);
         }
@@ -1785,8 +1796,8 @@ export default class Player extends PathingEntity {
         container.set(slot, { id: obj, count });
     }
 
-    invDel(inv: number, obj: number, count: number, beginSlot: number = -1): number {
-        const container = this.getInventory(inv);
+    invDel(inv: InvType, obj: ObjType, count: number, beginSlot: number = -1): number {
+        const container = this.getInventory(inv.id);
         if (!container) {
             throw new Error('invDel: Invalid inventory type: ' + inv);
         }
@@ -1796,12 +1807,12 @@ export default class Player extends PathingEntity {
             throw new Error('invDel: Invalid beginSlot: ' + beginSlot);
         }
 
-        const transaction = container.remove(obj, count, beginSlot);
+        const transaction = container.remove(obj.id, count, beginSlot);
         return transaction.completed;
     }
 
-    invDelSlot(inv: number, slot: number) {
-        const container = this.getInventory(inv);
+    invDelSlot(inv: InvType, slot: number) {
+        const container = this.getInventory(inv.id);
         if (!container) {
             throw new Error('invDelSlot: Invalid inventory type: ' + inv);
         }
@@ -1813,8 +1824,8 @@ export default class Player extends PathingEntity {
         container.delete(slot);
     }
 
-    invSize(inv: number): number {
-        const container = this.getInventory(inv);
+    invSize(inv: InvType): number {
+        const container = this.getInventory(inv.id);
         if (!container) {
             throw new Error('invSize: Invalid inventory type: ' + inv);
         }
@@ -1822,8 +1833,8 @@ export default class Player extends PathingEntity {
         return container.capacity;
     }
 
-    invTotal(inv: number, obj: number): number {
-        const container = this.getInventory(inv);
+    invTotal(inv: InvType, obj: number): number {
+        const container = this.getInventory(inv.id);
         if (!container) {
             throw new Error('invTotal: Invalid inventory type: ' + inv);
         }
@@ -1831,8 +1842,8 @@ export default class Player extends PathingEntity {
         return container.getItemCount(obj);
     }
 
-    invFreeSpace(inv: number): number {
-        const container = this.getInventory(inv);
+    invFreeSpace(inv: InvType): number {
+        const container = this.getInventory(inv.id);
         if (!container) {
             throw new Error('invFreeSpace: Invalid inventory type: ' + inv);
         }
@@ -1840,21 +1851,20 @@ export default class Player extends PathingEntity {
         return container.freeSlotCount;
     }
 
-    invItemSpace(inv: number, obj: number, count: number, size: number): number {
-        const container = this.getInventory(inv);
+    invItemSpace(inv: InvType, objType: ObjType, count: number, size: number): number {
+        const container = this.getInventory(inv.id);
         if (!container) {
             throw new Error('invItemSpace: Invalid inventory type: ' + inv);
         }
 
-        const objType = ObjType.get(obj);
-
         // oc_uncert
+        const obj = objType.id;
         let uncert = obj;
         if (objType.certtemplate >= 0 && objType.certlink >= 0) {
             uncert = objType.certlink;
         }
         if (objType.stackable || uncert != obj || container.stackType == Inventory.ALWAYS_STACK) {
-            const stockObj = InvType.get(inv).stockobj?.includes(obj) === true;
+            const stockObj = inv.stockobj?.includes(obj) === true;
             if (this.invTotal(inv, obj) == 0 && this.invFreeSpace(inv) == 0 && !stockObj) {
                 return count;
             }
@@ -1863,8 +1873,8 @@ export default class Player extends PathingEntity {
         return Math.max(0, count - (this.invFreeSpace(inv) - (this.invSize(inv) - size)));
     }
 
-    invMoveToSlot(fromInv: number, toInv: number, fromSlot: number, toSlot: number) {
-        const from = this.getInventory(fromInv);
+    invMoveToSlot(fromInv: InvType, toInv: InvType, fromSlot: number, toSlot: number) {
+        const from = this.getInventory(fromInv.id);
         if (!from) {
             throw new Error('invMoveToSlot: Invalid inventory type: ' + fromInv);
         }
@@ -1873,7 +1883,7 @@ export default class Player extends PathingEntity {
             throw new Error('invMoveToSlot: Invalid from slot: ' + fromSlot);
         }
 
-        const to = this.getInventory(toInv);
+        const to = this.getInventory(toInv.id);
         if (!to) {
             throw new Error('invMoveToSlot: Invalid inventory type: ' + toInv);
         }
@@ -1897,13 +1907,13 @@ export default class Player extends PathingEntity {
         }
     }
 
-    invMoveFromSlot(fromInv: number, toInv: number, fromSlot: number) {
-        const from = this.getInventory(fromInv);
+    invMoveFromSlot(fromInv: InvType, toInv: InvType, fromSlot: number) {
+        const from = this.getInventory(fromInv.id);
         if (!from) {
             throw new Error('invMoveFromSlot: Invalid inventory type: ' + fromInv);
         }
 
-        const to = this.getInventory(toInv);
+        const to = this.getInventory(toInv.id);
         if (!to) {
             throw new Error('invMoveFromSlot: Invalid inventory type: ' + toInv);
         }
@@ -1929,18 +1939,24 @@ export default class Player extends PathingEntity {
             throw new Error('invTotalCat: Invalid inventory type: ' + inv);
         }
 
-        return container.itemsFiltered.filter(obj => ObjType.get(obj.id).category == category).reduce((count, obj) => count + obj.count, 0);
+        return container.itemsFiltered.filter(obj => ObjType.get(obj.id)?.category === category).reduce((count, obj) => count + obj.count, 0);
     }
 
     // ----
 
     getVar(id: number) {
         const varp = VarPlayerType.get(id);
+        if (!varp) {
+            return null;
+        }
         return varp.type === ScriptVarType.STRING ? this.varsString[varp.id] : this.vars[varp.id];
     }
 
     setVar(id: number, value: number | string) {
         const varp = VarPlayerType.get(id);
+        if (!varp) {
+            return;
+        }
 
         if (varp.type === ScriptVarType.STRING && typeof value === 'string') {
             this.varsString[varp.id] = value as string;
@@ -2206,6 +2222,9 @@ export default class Player extends PathingEntity {
 
     wrappedMessageGame(mes: string) {
         const font = FontType.get(1);
+        if (!font) {
+            return;
+        }
         const lines = font.split(mes, 456);
         for (const line of lines) {
             this.messageGame(line);

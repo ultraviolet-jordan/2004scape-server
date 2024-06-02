@@ -195,7 +195,10 @@ export async function packWorldmap() {
                     continue;
                 }
 
-                const type: LocType = LocType.get(locId);
+                const type: LocType | undefined = LocType.get(locId);
+                if (!type) {
+                    continue;
+                }
                 const shape: number = info >> 2;
                 const angle: number = info & 0x3;
 
@@ -366,7 +369,7 @@ export async function packWorldmap() {
                     const id = npcBuf.g2();
                     const type = NpcType.get(id);
 
-                    if (type.minimap) {
+                    if (type && type.minimap) {
                         npcs[level][localX][localZ] = id;
                     }
                 }

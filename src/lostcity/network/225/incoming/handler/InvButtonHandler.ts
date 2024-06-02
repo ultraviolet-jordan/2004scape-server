@@ -54,8 +54,9 @@ export default class InvButtonHandler extends MessageHandler<InvButton> {
         const script = ScriptProvider.getByTrigger(trigger, comId, -1);
         if (script) {
             const root = Component.get(com.rootLayer);
-
-            player.executeScript(ScriptRunner.init(script, player), root.overlay == false);
+            if (root) {
+                player.executeScript(ScriptRunner.init(script, player), !root.overlay);
+            }
         } else {
             if (Environment.LOCAL_DEV) {
                 player.messageGame(`No trigger for [${ServerTriggerType.toString(trigger)},${com.comName}]`);

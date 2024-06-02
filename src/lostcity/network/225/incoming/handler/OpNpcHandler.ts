@@ -26,6 +26,10 @@ export default class OpNpcHandler extends MessageHandler<OpNpc> {
         }
 
         const npcType = NpcType.get(npc.type);
+        if (!npcType) {
+            return false;
+        }
+
         if (!npcType.op || !npcType.op[message.op - 1]) {
             return false;
         }

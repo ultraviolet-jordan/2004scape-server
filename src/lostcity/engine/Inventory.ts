@@ -43,11 +43,10 @@ export class Inventory {
     static NEVER_STACK = 2;
 
     static fromType(inv: number) {
-        if (inv === -1) {
+        const type = InvType.get(inv);
+        if (!type) {
             throw new Error('Invalid inventory type');
         }
-
-        const type = InvType.get(inv);
 
         let stackType = Inventory.NORMAL_STACK;
         if (type.stackall) {
@@ -154,8 +153,8 @@ export class Inventory {
 
     add(id: number, count = 1, beginSlot = -1, assureFullInsertion = true, forceNoStack = false, dryRun = false) {
         const type = ObjType.get(id);
-        const stockObj = InvType.get(this.type).stockobj?.includes(id) === true;
-        const stack = !forceNoStack && this.stackType != Inventory.NEVER_STACK && (type.stackable || this.stackType == Inventory.ALWAYS_STACK);
+        const stockObj = InvType.get(this.type)?.stockobj?.includes(id) === true;
+        const stack = !forceNoStack && this.stackType != Inventory.NEVER_STACK && (type?.stackable === true || this.stackType == Inventory.ALWAYS_STACK);
 
         let previousCount = 0;
         if (stack) {
@@ -239,7 +238,7 @@ export class Inventory {
 
     remove(id: number, count = 1, beginSlot = -1, assureFullRemoval = false) {
         const hasCount = this.getItemCount(id);
-        const stockObj = InvType.get(this.type).stockobj?.includes(id) === true;
+        const stockObj = InvType.get(this.type)?.stockobj?.includes(id) === true;
 
         if (assureFullRemoval && hasCount < count) {
             return new InventoryTransaction(count, 0, []);
@@ -365,6 +364,9 @@ export class Inventory {
         const count = Math.min(item.count, this.getItemCount(item.id));
 
         const objType = ObjType.get(item.id);
+        if (!objType) {
+            return null;
+        }
         let finalItem = { id: item.id, count: count };
         if (note && objType.certlink !== -1 && objType.certtemplate === -1) {
             finalItem = { id: objType.certlink, count };

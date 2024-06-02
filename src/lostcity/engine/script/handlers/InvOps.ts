@@ -1,5 +1,6 @@
 import InvType from '#lostcity/cache/InvType.js';
 import ObjType from '#lostcity/cache/ObjType.js';
+import CategoryType from '#lostcity/cache/CategoryType.js';
 
 import World from '#lostcity/engine/World.js';
 
@@ -27,56 +28,52 @@ const ProtectedActivePlayer = [ScriptPointer.ProtectedActivePlayer, ScriptPointe
 const InvOps: CommandHandlers = {
     // inv config
     [ScriptOpcode.INV_ALLSTOCK]: state => {
-        const inv = check(state.popInt(), InvTypeValid);
+        const invType: InvType = check(state.popInt(), InvTypeValid);
 
-        const type = InvType.get(inv);
-        state.pushInt(type.allstock ? 1 : 0);
+        state.pushInt(invType.allstock ? 1 : 0);
     },
 
     // inv config
     [ScriptOpcode.INV_SIZE]: state => {
-        const inv = check(state.popInt(), InvTypeValid);
+        const invType: InvType = check(state.popInt(), InvTypeValid);
 
-        const type = InvType.get(inv);
-        state.pushInt(type.size);
+        state.pushInt(invType.size);
     },
 
     // inv config
     [ScriptOpcode.INV_STOCKBASE]: state => {
         const [inv, obj] = state.popInts(2);
 
-        const type = InvType.get(check(inv, InvTypeValid));
+        const invType: InvType = check(inv, InvTypeValid);
+        const objType: ObjType = check(obj, ObjTypeValid);
 
-        if (!type.stockobj || !type.stockcount) {
+        if (!invType.stockobj || !invType.stockcount) {
             state.pushInt(-1);
             return;
         }
 
-        const index = type.stockobj.indexOf(check(obj, ObjTypeValid));
-        state.pushInt(index >= 0 ? type.stockcount[index] : -1);
+        const index = invType.stockobj.indexOf(objType.id);
+        state.pushInt(index >= 0 ? invType.stockcount[index] : -1);
     },
 
     // inv write
     [ScriptOpcode.INV_ADD]: checkedHandler(ActivePlayer, state => {
         const [inv, objId, count] = state.popInts(3);
 
-        check(inv, InvTypeValid);
-        check(objId, ObjTypeValid/*, ObjNotDummyValid*/);
+        const invType: InvType = check(inv, InvTypeValid);
+        const objType: ObjType = check(objId, ObjTypeValid/*, ObjNotDummyValid*/);
         check(count, ObjStackValid);
 
-        const obj = ObjType.get(objId);
-
-        const type = InvType.get(inv);
-        if (!state.pointerGet(ProtectedActivePlayer[state.intOperand]) && type.protect && type.scope !== InvType.SCOPE_SHARED) {
-            throw new Error(`$inv requires protected access: ${type.debugname}`);
+        if (!state.pointerGet(ProtectedActivePlayer[state.intOperand]) && invType.protect && invType.scope !== InvType.SCOPE_SHARED) {
+            throw new Error(`$inv requires protected access: ${invType.debugname}`);
         }
 
-        if (!type.dummyinv && obj.dummyitem !== 0) {
-            throw new Error(`dummyitem in non-dummyinv: ${obj.debugname} -> ${type.debugname}`);
+        if (!invType.dummyinv && objType.dummyitem !== 0) {
+            throw new Error(`dummyitem in non-dummyinv: ${objType.debugname} -> ${invType.debugname}`);
         }
 
         const player = state.activePlayer;
-        const overflow = count - player.invAdd(inv, objId, count);
+        const overflow = count - player.invAdd(invType, objId, count);
         if (overflow > 0) {
             const floorObj = new Obj(player.level, player.x, player.z, objId, overflow);
 
@@ -92,82 +89,71 @@ const InvOps: CommandHandlers = {
 
     // inv write
     [ScriptOpcode.INV_CLEAR]: checkedHandler(ActivePlayer, state => {
-        const inv = check(state.popInt(), InvTypeValid);
+        const invType: InvType = check(state.popInt(), InvTypeValid);
 
-        const type = InvType.get(inv);
-        if (!state.pointerGet(ProtectedActivePlayer[state.intOperand]) && type.protect && type.scope !== InvType.SCOPE_SHARED) {
-            throw new Error(`$inv requires protected access: ${type.debugname}`);
+        if (!state.pointerGet(ProtectedActivePlayer[state.intOperand]) && invType.protect && invType.scope !== InvType.SCOPE_SHARED) {
+            throw new Error(`$inv requires protected access: ${invType.debugname}`);
         }
 
-        state.activePlayer.invClear(inv);
+        state.activePlayer.invClear(invType);
     }),
 
     // inv write
     [ScriptOpcode.INV_DEL]: checkedHandler(ActivePlayer, state => {
         const [inv, obj, count] = state.popInts(3);
 
-        check(inv, InvTypeValid);
-        check(obj, ObjTypeValid);
+        const invType: InvType = check(inv, InvTypeValid);
+        const objType: ObjType = check(obj, ObjTypeValid);
         check(count, ObjStackValid);
 
-        const type = InvType.get(inv);
-        if (!state.pointerGet(ProtectedActivePlayer[state.intOperand]) && type.protect && type.scope !== InvType.SCOPE_SHARED) {
-            throw new Error(`$inv requires protected access: ${type.debugname}`);
+        if (!state.pointerGet(ProtectedActivePlayer[state.intOperand]) && invType.protect && invType.scope !== InvType.SCOPE_SHARED) {
+            throw new Error(`$inv requires protected access: ${invType.debugname}`);
         }
 
-        state.activePlayer.invDel(inv, obj, count);
+        state.activePlayer.invDel(invType, objType, count);
     }),
 
     // inv write
     [ScriptOpcode.INV_DELSLOT]: checkedHandler(ActivePlayer, state => {
         const [inv, slot] = state.popInts(2);
 
-        check(inv, InvTypeValid);
+        const invType: InvType = check(inv, InvTypeValid);
 
-        const type = InvType.get(inv);
-        if (slot < 0 || slot >= type.size) {
-            throw new Error(`$slot is out of range: ${slot}`);
+        if (!state.pointerGet(ProtectedActivePlayer[state.intOperand]) && invType.protect && invType.scope !== InvType.SCOPE_SHARED) {
+            throw new Error(`$inv requires protected access: ${invType.debugname}`);
         }
 
-        if (!state.pointerGet(ProtectedActivePlayer[state.intOperand]) && type.protect && type.scope !== InvType.SCOPE_SHARED) {
-            throw new Error(`$inv requires protected access: ${type.debugname}`);
-        }
-
-        const obj = state.activePlayer.invGetSlot(inv, slot);
+        const obj = state.activePlayer.invGetSlot(invType, slot);
         if (!obj) {
             return;
         }
 
-        state.activePlayer.invDelSlot(inv, slot);
+        state.activePlayer.invDelSlot(invType, slot);
     }),
 
     // inv write
     [ScriptOpcode.INV_DROPITEM]: checkedHandler(ActivePlayer, state => {
         const [inv, coord, obj, count, duration] = state.popInts(5);
 
-        check(inv, InvTypeValid);
-        check(coord, CoordValid);
-        check(obj, ObjTypeValid);
+        const invType: InvType = check(inv, InvTypeValid);
+        const position: Position = check(coord, CoordValid);
+        const objType: ObjType = check(obj, ObjTypeValid);
         check(count, ObjStackValid);
         check(duration, DurationValid);
 
-        const type = InvType.get(inv);
-        if (!state.pointerGet(ProtectedActivePlayer[state.intOperand]) && type.protect && type.scope !== InvType.SCOPE_SHARED) {
-            throw new Error(`$inv requires protected access: ${type.debugname}`);
+        if (!state.pointerGet(ProtectedActivePlayer[state.intOperand]) && invType.protect && invType.scope !== InvType.SCOPE_SHARED) {
+            throw new Error(`$inv requires protected access: ${invType.debugname}`);
         }
 
-        const pos = Position.unpackCoord(coord);
-
         const player = state.activePlayer;
-        const completed = player.invDel(inv, obj, count);
+        const completed = player.invDel(invType, objType, count);
         if (completed == 0) {
             return;
         }
 
-        const objType = ObjType.get(obj);
-        player.playerLog('Dropped item from', type.debugname as string, objType.debugname as string);
+        player.playerLog('Dropped item from', invType.debugname as string, objType.debugname as string);
 
-        const floorObj = new Obj(pos.level, pos.x, pos.z, obj, completed);
+        const floorObj = new Obj(position.level, position.x, position.z, objType.id, completed);
         World.addObj(floorObj, player, duration);
     }),
 
@@ -175,58 +161,47 @@ const InvOps: CommandHandlers = {
     [ScriptOpcode.INV_DROPSLOT]: checkedHandler(ActivePlayer, state => {
         const [inv, coord, slot, duration] = state.popInts(4);
 
-        check(inv, InvTypeValid);
+        const invType: InvType = check(inv, InvTypeValid);
         check(duration, DurationValid);
-        check(coord, CoordValid);
+        const position: Position = check(coord, CoordValid);
 
-        const type = InvType.get(inv);
-        if (slot < 0 || slot >= type.size) {
-            throw new Error(`$slot is out of range: ${slot}`);
-        }
-
-        const obj = state.activePlayer.invGetSlot(inv, slot);
+        const obj = state.activePlayer.invGetSlot(invType, slot);
         if (!obj) {
             throw new Error('$slot is empty');
         }
 
-        if (!state.pointerGet(ProtectedActivePlayer[state.intOperand]) && type.protect && type.scope !== InvType.SCOPE_SHARED) {
-            throw new Error(`$inv requires protected access: ${type.debugname}`);
+        const objType: ObjType = check(obj.id, ObjTypeValid);
+
+        if (!state.pointerGet(ProtectedActivePlayer[state.intOperand]) && invType.protect && invType.scope !== InvType.SCOPE_SHARED) {
+            throw new Error(`$inv requires protected access: ${invType.debugname}`);
         }
 
-        const pos = Position.unpackCoord(coord);
-
         const player = state.activePlayer;
-        const completed = player.invDel(inv, obj.id, obj.count, slot);
+        const completed = player.invDel(invType, objType, obj.count, slot);
         if (completed == 0) {
             return;
         }
 
-        const objType = ObjType.get(obj.id);
-        player.playerLog('Dropped item from', type.debugname as string, objType.debugname as string);
+        player.playerLog('Dropped item from', invType.debugname as string, objType.debugname as string);
 
-        const floorObj = new Obj(pos.level, pos.x, pos.z, obj.id, completed);
+        const floorObj = new Obj(position.level, position.x, position.z, obj.id, completed);
         World.addObj(floorObj, player, duration);
     }),
 
     // inv read
     [ScriptOpcode.INV_FREESPACE]: checkedHandler(ActivePlayer, state => {
-        const inv = check(state.popInt(), InvTypeValid);
+        const invType: InvType = check(state.popInt(), InvTypeValid);
 
-        state.pushInt(state.activePlayer.invFreeSpace(inv) as number);
+        state.pushInt(state.activePlayer.invFreeSpace(invType));
     }),
 
     // inv read
     [ScriptOpcode.INV_GETNUM]: checkedHandler(ActivePlayer, state => {
         const [inv, slot] = state.popInts(2);
 
-        check(inv, InvTypeValid);
+        const invType: InvType = check(inv, InvTypeValid);
 
-        const type = InvType.get(inv);
-        if (slot < 0 || slot >= type.size) {
-            throw new Error(`$slot is out of range: ${slot}`);
-        }
-
-        const obj = state.activePlayer.invGetSlot(inv, slot);
+        const obj = state.activePlayer.invGetSlot(invType, slot);
         state.pushInt(obj?.count ?? 0);
     }),
 
@@ -234,9 +209,9 @@ const InvOps: CommandHandlers = {
     [ScriptOpcode.INV_GETOBJ]: checkedHandler(ActivePlayer, state => {
         const [inv, slot] = state.popInts(2);
 
-        check(inv, InvTypeValid);
+        const invType: InvType = check(inv, InvTypeValid);
 
-        const obj = state.activePlayer.invGetSlot(inv, slot);
+        const obj = state.activePlayer.invGetSlot(invType, slot);
         state.pushInt(obj?.id ?? -1);
     }),
 
@@ -244,52 +219,45 @@ const InvOps: CommandHandlers = {
     [ScriptOpcode.INV_ITEMSPACE]: checkedHandler(ActivePlayer, state => {
         const [inv, obj, count, size] = state.popInts(4);
 
-        check(inv, InvTypeValid);
-        check(obj, ObjTypeValid);
+        const invType: InvType = check(inv, InvTypeValid);
+        const objType: ObjType = check(obj, ObjTypeValid);
         check(count, ObjStackValid);
 
-        const type = InvType.get(inv);
-        if (size < 0 || size > type.size) {
-            throw new Error(`$count is out of range: ${count}`);
+        if (size < 0 || size > invType.size) {
+            throw new Error(`size is out of range: ${size}`);
         }
 
-        state.pushInt(state.activePlayer.invItemSpace(inv, obj, count, size) == 0 ? 1 : 0);
+        state.pushInt(state.activePlayer.invItemSpace(invType, objType, count, size) == 0 ? 1 : 0);
     }),
 
     // inv read
     [ScriptOpcode.INV_ITEMSPACE2]: checkedHandler(ActivePlayer, state => {
         const [inv, obj, count, size] = state.popInts(4);
 
-        check(inv, InvTypeValid);
-        check(obj, ObjTypeValid);
+        const invType: InvType = check(inv, InvTypeValid);
+        const objType: ObjType = check(obj, ObjTypeValid);
         check(count, ObjStackValid);
 
-        state.pushInt(state.activePlayer.invItemSpace(inv, obj, count, size));
+        state.pushInt(state.activePlayer.invItemSpace(invType, objType, count, size));
     }),
 
     // inv write
     [ScriptOpcode.INV_MOVEFROMSLOT]: checkedHandler(ActivePlayer, state => {
         const [fromInv, toInv, fromSlot] = state.popInts(3);
 
-        check(fromInv, InvTypeValid);
-        check(toInv, InvTypeValid);
+        const fromType: InvType = check(fromInv, InvTypeValid);
+        const toType: InvType = check(toInv, InvTypeValid);
 
-        const type = InvType.get(fromInv);
-        if (fromSlot < 0 || fromSlot >= type.size) {
-            throw new Error(`$from_slot is out of range: ${fromSlot}`);
+        if (!state.pointerGet(ProtectedActivePlayer[state.intOperand]) && fromType.protect && fromType.scope !== InvType.SCOPE_SHARED) {
+            throw new Error(`$inv requires protected access: ${fromType.debugname}`);
         }
 
-        if (!state.pointerGet(ProtectedActivePlayer[state.intOperand]) && type.protect && type.scope !== InvType.SCOPE_SHARED) {
-            throw new Error(`$inv requires protected access: ${type.debugname}`);
-        }
-
-        const type2 = InvType.get(toInv);
-        if (!state.pointerGet(ProtectedActivePlayer[state.intOperand]) && type2.protect && type.scope !== InvType.SCOPE_SHARED) {
-            throw new Error(`$inv requires protected access: ${type2.debugname}`);
+        if (!state.pointerGet(ProtectedActivePlayer[state.intOperand]) && toType.protect && fromType.scope !== InvType.SCOPE_SHARED) {
+            throw new Error(`$inv requires protected access: ${toType.debugname}`);
         }
 
         const player = state.activePlayer;
-        const { overflow, fromObj } = player.invMoveFromSlot(fromInv, toInv, fromSlot);
+        const { overflow, fromObj } = player.invMoveFromSlot(fromType, toType, fromSlot);
         if (overflow > 0) {
             const floorObj = new Obj(player.level, player.x, player.z, fromObj, overflow);
 
@@ -301,36 +269,26 @@ const InvOps: CommandHandlers = {
     [ScriptOpcode.INV_MOVETOSLOT]: checkedHandler(ActivePlayer, state => {
         const [fromInv, toInv, fromSlot, toSlot] = state.popInts(4);
 
-        check(fromInv, InvTypeValid);
-        check(toInv, InvTypeValid);
+        const fromType: InvType = check(fromInv, InvTypeValid);
+        const toType: InvType = check(toInv, InvTypeValid);
 
-        const type = InvType.get(fromInv);
-        if (fromSlot < 0 || fromSlot >= type.size) {
-            throw new Error(`$from_slot is out of range: ${fromSlot}`);
+        if (!state.pointerGet(ProtectedActivePlayer[state.intOperand]) && fromType.protect && fromType.scope !== InvType.SCOPE_SHARED) {
+            throw new Error(`$inv requires protected access: ${fromType.debugname}`);
         }
 
-        const type2 = InvType.get(toInv);
-        if (toSlot < 0 || toSlot >= type2.size) {
-            throw new Error(`$to_slot is out of range: ${toSlot}`);
+        if (!state.pointerGet(ProtectedActivePlayer[state.intOperand]) && toType.protect && fromType.scope !== InvType.SCOPE_SHARED) {
+            throw new Error(`$inv requires protected access: ${toType.debugname}`);
         }
 
-        if (!state.pointerGet(ProtectedActivePlayer[state.intOperand]) && type.protect && type.scope !== InvType.SCOPE_SHARED) {
-            throw new Error(`$inv requires protected access: ${type.debugname}`);
-        }
-
-        if (!state.pointerGet(ProtectedActivePlayer[state.intOperand]) && type2.protect && type.scope !== InvType.SCOPE_SHARED) {
-            throw new Error(`$inv requires protected access: ${type2.debugname}`);
-        }
-
-        state.activePlayer.invMoveToSlot(fromInv, toInv, fromSlot, toSlot);
+        state.activePlayer.invMoveToSlot(fromType, toType, fromSlot, toSlot);
     }),
 
     // inv write
     [ScriptOpcode.BOTH_MOVEINV]: checkedHandler(ActivePlayer, state => {
         const [from, to] = state.popInts(2);
 
-        check(from, InvTypeValid);
-        check(to, InvTypeValid);
+        const fromType: InvType = check(from, InvTypeValid);
+        const toType: InvType = check(to, InvTypeValid);
 
         const secondary = state.intOperand == 1;
 
@@ -346,18 +304,16 @@ const InvOps: CommandHandlers = {
             throw new Error('player is null');
         }
 
-        const type = InvType.get(from);
-        if (!state.pointerGet(ProtectedActivePlayer[secondary ? 1 : 0]) && type.protect && type.scope !== InvType.SCOPE_SHARED) {
-            throw new Error(`$from_inv requires protected access: ${type.debugname}`);
+        if (!state.pointerGet(ProtectedActivePlayer[secondary ? 1 : 0]) && fromType.protect && fromType.scope !== InvType.SCOPE_SHARED) {
+            throw new Error(`$from_inv requires protected access: ${fromType.debugname}`);
         }
 
-        const type2 = InvType.get(to);
-        if (!state.pointerGet(ProtectedActivePlayer[secondary ? 0 : 1]) && type2.protect && type.scope !== InvType.SCOPE_SHARED) {
-            throw new Error(`$to_inv requires protected access: ${type2.debugname}`);
+        if (!state.pointerGet(ProtectedActivePlayer[secondary ? 0 : 1]) && toType.protect && fromType.scope !== InvType.SCOPE_SHARED) {
+            throw new Error(`$to_inv requires protected access: ${toType.debugname}`);
         }
 
-        const fromInv = fromPlayer.getInventory(from);
-        const toInv = toPlayer.getInventory(to);
+        const fromInv = fromPlayer.getInventory(fromType.id);
+        const toInv = toPlayer.getInventory(toType.id);
 
         if (!fromInv || !toInv) {
             throw new Error('inv is null');
@@ -381,95 +337,86 @@ const InvOps: CommandHandlers = {
     [ScriptOpcode.INV_MOVEITEM]: checkedHandler(ActivePlayer, state => {
         const [fromInv, toInv, obj, count] = state.popInts(4);
 
-        check(fromInv, InvTypeValid);
-        check(toInv, InvTypeValid);
-        check(obj, ObjTypeValid);
+        const fromType: InvType = check(fromInv, InvTypeValid);
+        const toType: InvType = check(toInv, InvTypeValid);
+        const objType: ObjType = check(obj, ObjTypeValid);
         check(count, ObjStackValid);
 
-        const type = InvType.get(fromInv);
-        if (!state.pointerGet(ProtectedActivePlayer[state.intOperand]) && type.protect && type.scope !== InvType.SCOPE_SHARED) {
-            throw new Error(`$inv requires protected access: ${type.debugname}`);
+        if (!state.pointerGet(ProtectedActivePlayer[state.intOperand]) && fromType.protect && fromType.scope !== InvType.SCOPE_SHARED) {
+            throw new Error(`$inv requires protected access: ${fromType.debugname}`);
         }
 
-        const type2 = InvType.get(toInv);
-        if (!state.pointerGet(ProtectedActivePlayer[state.intOperand]) && type2.protect && type.scope !== InvType.SCOPE_SHARED) {
-            throw new Error(`$inv requires protected access: ${type2.debugname}`);
+        if (!state.pointerGet(ProtectedActivePlayer[state.intOperand]) && toType.protect && fromType.scope !== InvType.SCOPE_SHARED) {
+            throw new Error(`$inv requires protected access: ${toType.debugname}`);
         }
 
-        const completed = state.activePlayer.invDel(fromInv, obj, count);
+        const completed = state.activePlayer.invDel(fromType, objType, count);
         if (completed == 0) {
             return;
         }
 
-        state.activePlayer.invAdd(toInv, obj, completed);
+        state.activePlayer.invAdd(toType, objType.id, completed);
     }),
 
     // inv write
     [ScriptOpcode.INV_MOVEITEM_CERT]: checkedHandler(ActivePlayer, state => {
         const [fromInv, toInv, obj, count] = state.popInts(4);
 
-        check(fromInv, InvTypeValid);
-        check(toInv, InvTypeValid);
-        check(obj, ObjTypeValid);
+        const fromType: InvType = check(fromInv, InvTypeValid);
+        const toType: InvType = check(toInv, InvTypeValid);
+        const objType: ObjType = check(obj, ObjTypeValid);
         check(count, ObjStackValid);
 
-        const type = InvType.get(fromInv);
-        if (!state.pointerGet(ProtectedActivePlayer[state.intOperand]) && type.protect && type.scope !== InvType.SCOPE_SHARED) {
-            throw new Error(`$inv requires protected access: ${type.debugname}`);
+        if (!state.pointerGet(ProtectedActivePlayer[state.intOperand]) && fromType.protect && fromType.scope !== InvType.SCOPE_SHARED) {
+            throw new Error(`$inv requires protected access: ${fromType.debugname}`);
         }
 
-        const type2 = InvType.get(toInv);
-        if (!state.pointerGet(ProtectedActivePlayer[state.intOperand]) && type2.protect && type.scope !== InvType.SCOPE_SHARED) {
-            throw new Error(`$inv requires protected access: ${type2.debugname}`);
+        if (!state.pointerGet(ProtectedActivePlayer[state.intOperand]) && toType.protect && fromType.scope !== InvType.SCOPE_SHARED) {
+            throw new Error(`$inv requires protected access: ${toType.debugname}`);
         }
 
-        const completed = state.activePlayer.invDel(fromInv, obj, count);
+        const completed = state.activePlayer.invDel(fromType, objType, count);
         if (completed == 0) {
             return;
         }
 
-        const objType = ObjType.get(obj);
-        let finalObj = obj;
+        let finalObj = objType.id;
         if (objType.certtemplate === -1 && objType.certlink >= 0) {
             finalObj = objType.certlink;
         }
-        const overflow = count - state.activePlayer.invAdd(toInv, finalObj, completed);
+        const overflow = count - state.activePlayer.invAdd(toType, finalObj, completed);
         if (overflow > 0) {
             const floorObj = new Obj(state.activePlayer.level, state.activePlayer.x, state.activePlayer.z, finalObj, overflow);
             World.addObj(floorObj, state.activePlayer, 200);
         }
-    
     }),
 
     // inv write
     [ScriptOpcode.INV_MOVEITEM_UNCERT]: checkedHandler(ActivePlayer, state => {
         const [fromInv, toInv, obj, count] = state.popInts(4);
 
-        check(fromInv, InvTypeValid);
-        check(toInv, InvTypeValid);
-        check(obj, ObjTypeValid);
+        const fromType: InvType = check(fromInv, InvTypeValid);
+        const toType: InvType = check(toInv, InvTypeValid);
+        const objType: ObjType = check(obj, ObjTypeValid);
         check(count, ObjStackValid);
 
-        const type = InvType.get(fromInv);
-        if (!state.pointerGet(ProtectedActivePlayer[state.intOperand]) && type.protect && type.scope !== InvType.SCOPE_SHARED) {
-            throw new Error(`$inv requires protected access: ${type.debugname}`);
+        if (!state.pointerGet(ProtectedActivePlayer[state.intOperand]) && fromType.protect && fromType.scope !== InvType.SCOPE_SHARED) {
+            throw new Error(`$inv requires protected access: ${fromType.debugname}`);
         }
 
-        const type2 = InvType.get(toInv);
-        if (!state.pointerGet(ProtectedActivePlayer[state.intOperand]) && type2.protect && type.scope !== InvType.SCOPE_SHARED) {
-            throw new Error(`$inv requires protected access: ${type2.debugname}`);
+        if (!state.pointerGet(ProtectedActivePlayer[state.intOperand]) && toType.protect && fromType.scope !== InvType.SCOPE_SHARED) {
+            throw new Error(`$inv requires protected access: ${toType.debugname}`);
         }
 
-        const completed = state.activePlayer.invDel(fromInv, obj, count);
+        const completed = state.activePlayer.invDel(fromType, objType, count);
         if (completed == 0) {
             return;
         }
 
-        const objType = ObjType.get(obj);
         if (objType.certtemplate >= 0 && objType.certlink >= 0) {
-            state.activePlayer.invAdd(toInv, objType.certlink, completed);
+            state.activePlayer.invAdd(toType, objType.certlink, completed);
         } else {
-            state.activePlayer.invAdd(toInv, obj, completed);
+            state.activePlayer.invAdd(toType, objType.id, completed);
         }
     }),
 
@@ -477,33 +424,30 @@ const InvOps: CommandHandlers = {
     [ScriptOpcode.INV_SETSLOT]: checkedHandler(ActivePlayer, state => {
         const [inv, slot, objId, count] = state.popInts(4);
 
-        check(inv, InvTypeValid);
-        check(objId, ObjTypeValid/*, ObjNotDummyValid*/);
+        const invType: InvType = check(inv, InvTypeValid);
+        const objType: ObjType = check(objId, ObjTypeValid/*, ObjNotDummyValid*/);
         check(count, ObjStackValid);
 
-        const type = InvType.get(inv);
-        if (slot < 0 || slot >= type.size) {
+        if (slot < 0 || slot >= invType.size) {
             throw new Error(`$slot is out of range: ${slot}`);
         }
 
-        const obj = ObjType.get(objId);
-
-        if (!state.pointerGet(ProtectedActivePlayer[state.intOperand]) && type.protect && type.scope !== InvType.SCOPE_SHARED) {
-            throw new Error(`$inv requires protected access: ${type.debugname}`);
+        if (!state.pointerGet(ProtectedActivePlayer[state.intOperand]) && invType.protect && invType.scope !== InvType.SCOPE_SHARED) {
+            throw new Error(`$inv requires protected access: ${invType.debugname}`);
         }
 
-        if (!type.dummyinv && obj.dummyitem !== 0) {
-            throw new Error(`dummyitem in non-dummyinv: ${obj.debugname} -> ${type.debugname}`);
+        if (!invType.dummyinv && objType.dummyitem !== 0) {
+            throw new Error(`dummyitem in non-dummyinv: ${objType.debugname} -> ${invType.debugname}`);
         }
 
-        state.activePlayer.invSet(inv, objId, count, slot);
+        state.activePlayer.invSet(invType, objType.id, count, slot);
     }),
 
     // inv read
     [ScriptOpcode.INV_TOTAL]: checkedHandler(ActivePlayer, state => {
         const [inv, obj] = state.popInts(2);
 
-        check(inv, InvTypeValid);
+        const invType: InvType = check(inv, InvTypeValid);
 
         // todo: error instead?
         if (obj === -1) {
@@ -511,27 +455,27 @@ const InvOps: CommandHandlers = {
             return;
         }
 
-        state.pushInt(state.activePlayer.invTotal(inv, obj) as number);
+        state.pushInt(state.activePlayer.invTotal(invType, obj));
     }),
 
     // inv read
     [ScriptOpcode.INV_TOTALCAT]: checkedHandler(ActivePlayer, state => {
         const [inv, category] = state.popInts(2);
 
-        check(inv, InvTypeValid);
-        check(category, CategoryTypeValid);
+        const invType: InvType = check(inv, InvTypeValid);
+        const catType: CategoryType = check(category, CategoryTypeValid);
 
-        state.pushInt(state.activePlayer.invTotalCat(inv, category));
+        state.pushInt(state.activePlayer.invTotalCat(invType.id, catType.id));
     }),
 
     // inv protocol
     [ScriptOpcode.INV_TRANSMIT]: checkedHandler(ActivePlayer, state => {
         const [inv, com] = state.popInts(2);
 
-        check(inv, InvTypeValid);
+        const invType: InvType = check(inv, InvTypeValid);
         check(com, NumberNotNull);
 
-        state.activePlayer.invListenOnCom(inv, com, state.activePlayer.uid);
+        state.activePlayer.invListenOnCom(invType, com, state.activePlayer.uid);
     }),
 
     // inv protocol
@@ -539,10 +483,10 @@ const InvOps: CommandHandlers = {
         const [uid, inv, com] = state.popInts(3);
 
         check(uid, NumberNotNull);
-        check(inv, InvTypeValid);
+        const invType: InvType = check(inv, InvTypeValid);
         check(com, NumberNotNull);
 
-        state.activePlayer.invListenOnCom(inv, com, uid);
+        state.activePlayer.invListenOnCom(invType, com, uid);
     }),
 
     // inv protocol

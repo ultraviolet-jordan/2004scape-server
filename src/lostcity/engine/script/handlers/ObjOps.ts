@@ -13,12 +13,12 @@ import Obj from '#lostcity/entity/Obj.js';
 import { Position } from '#lostcity/entity/Position.js';
 
 import Environment from '#lostcity/util/Environment.js';
+
 import {
     check,
     CoordValid,
     DurationValid,
     InvTypeValid,
-    ObjNotDummyValid,
     ObjStackValid,
     ObjTypeValid,
     ParamTypeValid
@@ -35,20 +35,18 @@ const ObjOps: CommandHandlers = {
             return;
         }
 
-        check(objId, ObjTypeValid, ObjNotDummyValid);
+        const objType: ObjType = check(objId, ObjTypeValid/*, ObjNotDummyValid*/);
         check(duration, DurationValid);
-        check(coord, CoordValid);
+        const position: Position = check(coord, CoordValid);
         check(count, ObjStackValid);
 
-        const {level, x, z} = Position.unpackCoord(coord);
-        const obj: Obj = new Obj(level, x, z, objId, count);
-
+        const obj: Obj = new Obj(position.level, position.x, position.z, objType.id, count);
         World.addObj(obj, state.activePlayer, duration);
         state.activeObj = obj;
         state.pointerAdd(ActiveObj[state.intOperand]);
 
         if (Environment.CLIRUNNER) {
-            state.activePlayer.invAdd(InvType.getByName('bank')!.id, objId, count);
+            state.activePlayer.invAdd(InvType.getByName('bank')!, objType.id, count);
         }
     },
 
@@ -57,21 +55,20 @@ const ObjOps: CommandHandlers = {
     },
 
     [ScriptOpcode.OBJ_PARAM]: state => {
-        const paramId = check(state.popInt(), ParamTypeValid);
+        const paramType: ParamType = check(state.popInt(), ParamTypeValid);
 
-        const param = ParamType.get(paramId);
-        const obj = ObjType.get(state.activeObj.type);
-        if (param.isString()) {
-            state.pushString(ParamHelper.getStringParam(paramId, obj, param.defaultString));
+        const objType: ObjType = check(state.activeObj.type, ObjTypeValid);
+        if (paramType.isString()) {
+            state.pushString(ParamHelper.getStringParam(paramType.id, objType, paramType.defaultString));
         } else {
-            state.pushInt(ParamHelper.getIntParam(paramId, obj, param.defaultInt));
+            state.pushInt(ParamHelper.getIntParam(paramType.id, objType, paramType.defaultInt));
         }
     },
 
     [ScriptOpcode.OBJ_NAME]: state => {
-        const obj = ObjType.get(state.activeObj.type);
+        const objType: ObjType = check(state.activeObj.type, ObjTypeValid);
 
-        state.pushString(obj.name ?? obj.debugname ?? 'null');
+        state.pushString(objType.name ?? objType.debugname ?? 'null');
     },
 
     [ScriptOpcode.OBJ_DEL]: state => {
@@ -83,22 +80,22 @@ const ObjOps: CommandHandlers = {
     },
 
     [ScriptOpcode.OBJ_COUNT]: state => {
-        state.pushInt(state.activeObj.count);
+        state.pushInt(check(state.activeObj.count, ObjStackValid));
     },
 
     [ScriptOpcode.OBJ_TYPE]: state => {
-        state.pushInt(state.activeObj.type);
+        state.pushInt(check(state.activeObj.type, ObjTypeValid).id);
     },
 
     [ScriptOpcode.OBJ_TAKEITEM]: state => {
-        const inv = check(state.popInt(), InvTypeValid);
+        const invType: InvType = check(state.popInt(), InvTypeValid);
 
         const obj = state.activeObj;
         if (World.getObj(obj.x, obj.z, obj.level, obj.id)) {
-            const objType = ObjType.get(obj.type);
+            const objType: ObjType = check(obj.type, ObjTypeValid);
             state.activePlayer.playerLog('Picked up item', objType.debugname as string);
 
-            state.activePlayer.invAdd(inv, obj.id, obj.count);
+            state.activePlayer.invAdd(invType, obj.id, obj.count);
             World.removeObj(obj, state.activePlayer);
         }
     },

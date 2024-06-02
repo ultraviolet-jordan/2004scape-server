@@ -323,7 +323,7 @@ export default abstract class PathingEntity extends Entity {
         if (target instanceof PathingEntity) {
             return reached(this.level, this.x, this.z, target.x, target.z, target.width, target.length, this.width, target.orientation, -2);
         } else if (target instanceof Loc) {
-            const forceapproach = LocType.get(target.type).forceapproach;
+            const forceapproach = LocType.get(target.type)?.forceapproach ?? 0;
             return reached(this.level, this.x, this.z, target.x, target.z, target.width, target.length, this.width, target.angle, target.shape, forceapproach);
         }
         // instanceof Obj
@@ -360,7 +360,7 @@ export default abstract class PathingEntity extends Entity {
             if (this.target instanceof PathingEntity) {
                 this.queueWaypoints(findPath(this.level, this.x, this.z, this.target.x, this.target.z, this.width, this.target.width, this.target.length, this.target.orientation, -2));
             } else if (this.target instanceof Loc) {
-                const forceapproach = LocType.get(this.target.type).forceapproach;
+                const forceapproach = LocType.get(this.target.type)?.forceapproach ?? 0;
                 this.queueWaypoints(findPath(this.level, this.x, this.z, this.target.x, this.target.z, this.width, this.target.width, this.target.length, this.target.angle, this.target.shape, true, forceapproach));
             } else {
                 this.queueWaypoints(findPath(this.level, this.x, this.z, this.target.x, this.target.z));

@@ -51,7 +51,7 @@ export default class VarPlayerType extends ConfigType {
         VarPlayerType.LASTCOMBAT = VarPlayerType.getId('lastcombat');
     }
 
-    static get(id: number): VarPlayerType {
+    static get(id: number): VarPlayerType | undefined {
         return VarPlayerType.configs[id];
     }
 
@@ -59,10 +59,10 @@ export default class VarPlayerType extends ConfigType {
         return VarPlayerType.configNames.get(name) ?? -1;
     }
 
-    static getByName(name: string): VarPlayerType | null {
+    static getByName(name: string): VarPlayerType | undefined {
         const id = this.getId(name);
         if (id === -1) {
-            return null;
+            return undefined;
         }
 
         return this.get(id);

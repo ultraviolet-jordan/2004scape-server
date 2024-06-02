@@ -32,7 +32,7 @@ export default class MesanimType extends ConfigType {
         }
     }
 
-    static get(id: number): MesanimType {
+    static get(id: number): MesanimType | undefined {
         return MesanimType.configs[id];
     }
 
@@ -40,10 +40,10 @@ export default class MesanimType extends ConfigType {
         return MesanimType.configNames.get(name) ?? -1;
     }
 
-    static getByName(name: string) {
+    static getByName(name: string): MesanimType | undefined {
         const id = this.getId(name);
         if (id === -1) {
-            return null;
+            return undefined;
         }
 
         return this.get(id);

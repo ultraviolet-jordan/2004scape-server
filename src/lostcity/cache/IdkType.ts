@@ -38,7 +38,7 @@ export default class IdkType extends ConfigType {
         }
     }
 
-    static get(id: number): IdkType {
+    static get(id: number): IdkType | undefined {
         return IdkType.configs[id];
     }
 
@@ -46,10 +46,10 @@ export default class IdkType extends ConfigType {
         return IdkType.configNames.get(name) ?? -1;
     }
 
-    static getByName(name: string): IdkType | null {
+    static getByName(name: string): IdkType | undefined {
         const id = this.getId(name);
         if (id === -1) {
-            return null;
+            return undefined;
         }
 
         return this.get(id);

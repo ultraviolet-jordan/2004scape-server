@@ -33,7 +33,7 @@ export default class DbTableType extends ConfigType {
         }
     }
 
-    static get(id: number): DbTableType {
+    static get(id: number): DbTableType | undefined {
         return DbTableType.configs[id];
     }
 
@@ -41,10 +41,10 @@ export default class DbTableType extends ConfigType {
         return DbTableType.configNames.get(name) ?? -1;
     }
 
-    static getByName(name: string): DbTableType | null {
+    static getByName(name: string): DbTableType | undefined {
         const id = this.getId(name);
         if (id === -1) {
-            return null;
+            return undefined;
         }
 
         return this.get(id);
