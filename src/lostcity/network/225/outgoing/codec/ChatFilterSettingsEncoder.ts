@@ -9,6 +9,6 @@ export default class ChatFilterSettingsEncoder extends MessageEncoder<ChatFilter
     encode(buf: Packet, message: ChatFilterSettings): void {
         buf.p1(message.publicChat);
         buf.p1(message.privateChat);
-        buf.p1(message.tradeDuel);
+        buf.p1(message.tradeDuelChat);
     }
 }

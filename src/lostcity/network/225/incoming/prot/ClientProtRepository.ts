@@ -60,12 +60,14 @@ import ResumePCountDialogHandler from '#lostcity/network/225/incoming/handler/Re
 import TutorialClickSideHandler from '#lostcity/network/225/incoming/handler/TutorialClickSideHandler.js';
 import MoveClickDecoder from '#lostcity/network/225/incoming/codec/MoveClickDecoder.js';
 import MoveClickHandler from '#lostcity/network/225/incoming/handler/MoveClickHandler.js';
+import ChatSetModeDecoder from '#lostcity/network/225/incoming/codec/ChatSetModeDecoder.js';
+import ChatSetModeHandler from '#lostcity/network/225/incoming/handler/ChatSetModeHandler.js';
 
 class ClientProtRepository {
     decoders: Map<number, MessageDecoder<IncomingMessage>> = new Map();
     handlers: Map<number, MessageHandler<IncomingMessage>> = new Map();
 
-    private bind(decoder: MessageDecoder<IncomingMessage>, handler?: MessageHandler<IncomingMessage>) {
+    private bind<T extends IncomingMessage>(decoder: MessageDecoder<T>, handler?: MessageHandler<T>) {
         if (this.decoders.has(decoder.prot.id)) {
             throw new Error(`[ClientProtRepository] Already defines a ${decoder.prot.id}.`);
         }
@@ -78,6 +80,7 @@ class ClientProtRepository {
     }
 
     constructor() {
+        this.bind(new ChatSetModeDecoder(), new ChatSetModeHandler());
         this.bind(new ClientCheatDecoder(), new ClientCheatHandler());
         this.bind(new CloseModalDecoder(), new CloseModalHandler());
         // this.bind(new FriendListAddDecoder(), new FriendListAddHandler());

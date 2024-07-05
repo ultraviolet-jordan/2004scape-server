@@ -3,4 +3,12 @@ import ClientProtCategory from '#lostcity/network/incoming/prot/ClientProtCatego
 
 export default class ChatSetMode extends IncomingMessage {
     category = ClientProtCategory.USER_EVENT;
+
+    constructor(
+        readonly publicChat: number,
+        readonly privateChat: number,
+        readonly tradeDuelChat: number
+    ) {
+        super();
+    }
 }

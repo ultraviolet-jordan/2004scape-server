@@ -62,9 +62,14 @@ import HintArrow from '#lostcity/network/outgoing/model/HintArrow.js';
 import LastLoginInfo from '#lostcity/network/outgoing/model/LastLoginInfo.js';
 import MessageGame from '#lostcity/network/outgoing/model/MessageGame.js';
 import ServerProtPriority from '#lostcity/network/outgoing/prot/ServerProtPriority.js';
-import { ParamHelper } from '#lostcity/cache/config/ParamHelper.js';
+import {ParamHelper} from '#lostcity/cache/config/ParamHelper.js';
 import ParamType from '#lostcity/cache/config/ParamType.js';
 import BuildArea from '#lostcity/entity/BuildArea.js';
+import PublicChat from '#lostcity/entity/chat/PublicChat.js';
+import PrivateChat from '#lostcity/entity/chat/PrivateChat.js';
+import TradeDuelChat from '#lostcity/entity/chat/TradeDuelChat.js';
+import MessageColor from '#lostcity/entity/chat/MessageColor.js';
+import MessageEffect from '#lostcity/entity/chat/MessageEffect.js';
 
 const levelExperience = new Int32Array(99);
 
@@ -137,7 +142,7 @@ export default class Player extends PathingEntity {
     save() {
         const sav = Packet.alloc(1);
         sav.p2(0x2004); // magic
-        sav.p2(3); // version
+        sav.p2(4); // version
 
         sav.p2(this.x);
         sav.p2(this.z);
@@ -198,11 +203,17 @@ export default class Player extends PathingEntity {
         // set the total saved inv count as the placeholder
         sav.data[invStartPos] = invCount;
 
+        // afk zones
         sav.p1(this.afkZones.length);
         for (let index: number = 0; index < this.afkZones.length; index++) {
             sav.p4(this.afkZones[index]);
         }
         sav.p2(this.lastAfkZone);
+
+        // social settings
+        sav.p1(this.publicChat);
+        sav.p1(this.privateChat);
+        sav.p1(this.tradeDuelChat);
 
         sav.p4(Packet.getcrc(sav.data, 0, sav.pos));
         const safeName = fromBase37(this.username37);
@@ -266,8 +277,8 @@ export default class Player extends PathingEntity {
     lowPriorityOut: Stack<OutgoingMessage> = new Stack();
     lastResponse = -1;
 
-    messageColor: number | null = null;
-    messageEffect: number | null = null;
+    messageColor: MessageColor | null = null;
+    messageEffect: MessageEffect | null = null;
     messageType: number | null = null;
     message: Uint8Array | null = null;
 
@@ -313,6 +324,10 @@ export default class Player extends PathingEntity {
 
     afkZones: Int32Array = new Int32Array(2);
     lastAfkZone: number = 0;
+
+    publicChat: PublicChat = PublicChat.ON;
+    privateChat: PrivateChat = PrivateChat.ON;
+    tradeDuelChat: TradeDuelChat = TradeDuelChat.ON;
 
     constructor(username: string, username37: bigint) {
         super(0, 3094, 3106, 1, 1, EntityLifeCycle.FOREVER, MoveRestrict.NORMAL, BlockWalk.NPC, MoveStrategy.SMART, Player.FACE_COORD, Player.FACE_ENTITY); // tutorial island.

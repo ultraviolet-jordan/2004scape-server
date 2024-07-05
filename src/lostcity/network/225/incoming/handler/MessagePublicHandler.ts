@@ -4,11 +4,13 @@ import MessagePublic from '#lostcity/network/incoming/model/MessagePublic.js';
 import Packet from '#jagex2/io/Packet.js';
 import WordPack from '#jagex2/wordenc/WordPack.js';
 import WordEnc from '#lostcity/cache/wordenc/WordEnc.js';
+import MessageColor from '#lostcity/entity/chat/MessageColor.js';
+import MessageEffect from '#lostcity/entity/chat/MessageEffect.js';
 
 export default class MessagePublicHandler extends MessageHandler<MessagePublic> {
     handle(message: MessagePublic, player: Player): boolean {
         const { color, effect, input } = message;
-        if (color < 0 || color > 11 || effect < 0 || effect > 2 || input.length > 100) {
+        if (color < MessageColor.YELLOW || color > MessageColor.GLOW3 || effect < MessageEffect.NONE || effect > MessageEffect.SCROLL || input.length > 100) {
             return false;
         }
 
