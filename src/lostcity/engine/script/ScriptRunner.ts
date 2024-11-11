@@ -1,4 +1,4 @@
-import ScriptFile from '#lostcity/engine/script/ScriptFile.js';
+import { ScriptFile } from '../../../../runescript-runtime/dist/runescript-runtime.js';
 import ScriptOpcode from '#lostcity/engine/script/ScriptOpcode.js';
 import ScriptPointer from '#lostcity/engine/script/ScriptPointer.js';
 import ScriptState from '#lostcity/engine/script/ScriptState.js';
@@ -118,10 +118,6 @@ export default class ScriptRunner {
     }
 
     static execute(state: ScriptState, reset = false, benchmark = false) {
-        if (!state || !state.script || !state.script.info) {
-            return ScriptState.ABORTED;
-        }
-
         try {
             if (reset) {
                 state.reset();
@@ -148,7 +144,7 @@ export default class ScriptRunner {
             }
             const time: number = ((performance.now() * 1000) - start) | 0;
             if (Environment.NODE_DEBUG_PROFILER && time > 1000) {
-                const message: string = `Warning [cpu time]: Script: ${state.script.info.scriptName}, time: ${time}us, opcount: ${state.opcount}`;
+                const message: string = `Warning [cpu time]: Script: ${state.script.name}, time: ${time}us, opcount: ${state.opcount}`;
                 if (state.self instanceof Player) {
                     state.self.wrappedMessageGame(message);
                 } else {

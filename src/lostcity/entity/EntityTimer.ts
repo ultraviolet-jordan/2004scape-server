@@ -1,5 +1,5 @@
 import { ScriptArgument } from '#lostcity/entity/EntityQueueRequest.js';
-import ScriptFile from '#lostcity/engine/script/ScriptFile.js';
+import { ScriptFile } from '../../../runescript-runtime/dist/runescript-runtime.js';
 
 export enum NpcTimerType {
     NPC

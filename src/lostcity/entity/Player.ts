@@ -31,7 +31,7 @@ import MoveStrategy from '#lostcity/entity/MoveStrategy.js';
 import {Inventory} from '#lostcity/engine/Inventory.js';
 import World from '#lostcity/engine/World.js';
 
-import ScriptFile from '#lostcity/engine/script/ScriptFile.js';
+import { ScriptFile } from '../../../runescript-runtime/dist/runescript-runtime.js';
 import ScriptProvider from '#lostcity/engine/script/ScriptProvider.js';
 import ScriptRunner from '#lostcity/engine/script/ScriptRunner.js';
 import ScriptState from '#lostcity/engine/script/ScriptState.js';
@@ -92,6 +92,10 @@ export function getLevelByExp(exp: number) {
 
 export function getExpByLevel(level: number) {
     return levelExperience[level - 2];
+}
+
+abstract class ScriptPlayer {
+    test: number = 0;
 }
 
 export default class Player extends PathingEntity {

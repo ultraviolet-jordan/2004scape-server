@@ -5,7 +5,7 @@ import VarSharedType from '#lostcity/cache/config/VarSharedType.js';
 
 import World from '#lostcity/engine/World.js';
 
-import ScriptFile from '#lostcity/engine/script/ScriptFile.js';
+import { ScriptFile } from '../../../../../runescript-runtime/dist/runescript-runtime.js';
 import ScriptOpcode from '#lostcity/engine/script/ScriptOpcode.js';
 import ScriptProvider from '#lostcity/engine/script/ScriptProvider.js';
 import { CommandHandlers } from '#lostcity/engine/script/ScriptRunner.js';
@@ -290,13 +290,13 @@ const CoreOps: CommandHandlers = {
 
     [ScriptOpcode.SWITCH]: state => {
         const key = state.popInt();
-        const table = state.script.switchTables[state.intOperand];
-        if (table === undefined) {
+        const table = state.script.switchTables(state.intOperand) as Map<number, number> | undefined;
+        if (typeof table === 'undefined') {
             return;
         }
 
-        const result = table[key];
-        if (result) {
+        const result: number | undefined = table.get(key);
+        if (typeof result !== 'undefined') {
             state.pc += result;
         }
     },

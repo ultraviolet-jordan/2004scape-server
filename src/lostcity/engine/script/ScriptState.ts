@@ -1,6 +1,6 @@
 import DbTableType from '#lostcity/cache/config/DbTableType.js';
 
-import ScriptFile from '#lostcity/engine/script/ScriptFile.js';
+import { ScriptFile } from '../../../../runescript-runtime/dist/runescript-runtime.js';
 import ScriptPointer from '#lostcity/engine/script/ScriptPointer.js';
 import ServerTriggerType from '#lostcity/engine/script/ServerTriggerType.js';
 
@@ -128,7 +128,7 @@ export default class ScriptState {
 
     constructor(script: ScriptFile, args: ScriptArgument[] | null = []) {
         this.script = script;
-        this.trigger = script.info.lookupKey & 0xff;
+        this.trigger = script.lookup & 0xff;
 
         if (args) {
             for (let i = 0; i < args.length; i++) {

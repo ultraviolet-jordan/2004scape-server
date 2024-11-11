@@ -356,10 +356,11 @@ export default class ClientCheatHandler extends MessageHandler<ClientCheat> {
                 return false;
             }
 
-            const params = new Array(script.info.parameterTypes.length).fill(-1);
+            const p = script.params;
+            const params = new Array(p.length).fill(-1);
 
-            for (let i = 0; i < script.info.parameterTypes.length; i++) {
-                const type = script.info.parameterTypes[i];
+            for (let i = 0; i < p.length; i++) {
+                const type = p[i];
 
                 try {
                     switch (type) {

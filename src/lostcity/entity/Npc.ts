@@ -7,7 +7,7 @@ import SeqType from '#lostcity/cache/config/SeqType.js';
 import World from '#lostcity/engine/World.js';
 import {Direction, CoordGrid} from '#lostcity/engine/CoordGrid.js';
 
-import ScriptFile from '#lostcity/engine/script/ScriptFile.js';
+import { ScriptFile } from '../../../runescript-runtime/dist/runescript-runtime.js';
 import ScriptPointer from '#lostcity/engine/script/ScriptPointer.js';
 import ScriptProvider from '#lostcity/engine/script/ScriptProvider.js';
 import ScriptRunner from '#lostcity/engine/script/ScriptRunner.js';

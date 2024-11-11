@@ -1,10 +1,28 @@
 import Packet from '#jagex2/io/Packet.js';
 
-import ScriptFile from '#lostcity/engine/script/ScriptFile.js';
 import ServerTriggerType from '#lostcity/engine/script/ServerTriggerType.js';
 
 import {TargetOp} from '#lostcity/entity/PathingEntity.js';
 import { printFatalError, printWarning } from '#lostcity/util/Logger.js';
+import { ScriptFile, ScriptInfo } from '../../../../runescript-runtime/dist/runescript-runtime.js';
+import ScriptOpcode from '#lostcity/engine/script/ScriptOpcode.js';
+
+function isLargeOperand(opcode: number): boolean {
+    if (opcode > 100) {
+        return false;
+    }
+
+    switch (opcode) {
+        case ScriptOpcode.RETURN:
+        case ScriptOpcode.POP_INT_DISCARD:
+        case ScriptOpcode.POP_STRING_DISCARD:
+        case ScriptOpcode.GOSUB:
+        case ScriptOpcode.JUMP:
+            return false;
+    }
+
+    return true;
+}
 
 // maintains a list of scripts (id <-> name)
 export default class ScriptProvider {
@@ -72,13 +90,13 @@ export default class ScriptProvider {
             try {
                 const data: Uint8Array = new Uint8Array(size);
                 dat.gdata(data, 0, data.length);
-                const script = ScriptFile.decode(id, new Packet(data));
+                const script: ScriptFile = this.decode(id, new Packet(data));
                 scripts[id] = script;
                 scriptNames.set(script.name, id);
 
                 // add the script to lookup table if the value isn't -1
-                if (script.info.lookupKey !== 0xffffffff) {
-                    scriptLookup.set(script.info.lookupKey, script);
+                if (script.lookup !== 0xffffffff) {
+                    scriptLookup.set(script.lookup, script);
                 }
 
                 loaded++;
@@ -93,6 +111,84 @@ export default class ScriptProvider {
         ScriptProvider.scriptNames = scriptNames;
         ScriptProvider.scriptLookup = scriptLookup;
         return loaded;
+    }
+
+    static decode(id: number, stream: Packet): ScriptFile {
+        const length: number = stream.data.length;
+        if (length < 16) {
+            throw new Error('Invalid script file (minimum length)');
+        }
+
+        stream.pos = length - 2;
+
+        const trailerLen: number = stream.g2();
+        const trailerPos: number = length - trailerLen - 12 - 2;
+
+        if (trailerPos < 0 || trailerPos >= length) {
+            throw new Error('Invalid script file (bad trailer pos)');
+        }
+
+        stream.pos = trailerPos;
+
+        // const script = new ScriptFile(id);
+        const instructions: number = stream.g4(); // we don't need to preallocate anything in JS, but still need to read it
+        const intLocalCount: number = stream.g2();
+        const stringLocalCount: number = stream.g2();
+        const intArgCount: number = stream.g2();
+        const stringArgCount: number = stream.g2();
+
+        const switchTable: Map<number, Map<number, number>> = new Map();
+        const switches: number = stream.g1();
+        for (let i = 0; i < switches; i++) {
+            const count: number = stream.g2();
+            const table: Map<number, number> = new Map();
+            for (let j = 0; j < count; j++) {
+                table.set(stream.g4(), stream.g4());
+            }
+            switchTable.set(i, table);
+        }
+
+        stream.pos = 0;
+
+        const name: string = stream.gjstr(0);
+        const path: string = stream.gjstr(0);
+        const lookup = stream.g4();
+
+        const parameterTypeCount: number = stream.g1();
+        const params: Uint8Array = new Uint8Array(parameterTypeCount);
+        for (let i = 0; i < parameterTypeCount; i++) {
+            params[i] = stream.g1();
+        }
+
+        const lineNumberTableLength = stream.g2();
+        const pcs = new Int32Array(lineNumberTableLength);
+        const lines = new Int32Array(lineNumberTableLength);
+        for (let i = 0; i < lineNumberTableLength; i++) {
+            pcs[i] = stream.g4();
+            lines[i] = stream.g4();
+        }
+
+        const info: ScriptInfo = new ScriptInfo(name, path, lookup, params, pcs, lines);
+
+        const codes: Uint16Array = new Uint16Array(instructions);
+        const intOperands: Int32Array = new Int32Array(instructions);
+        const stringOperands: Array<string> = new Array(instructions);
+
+        let pc: number = 0;
+        while (trailerPos > stream.pos) {
+            const opcode: number = stream.g2();
+
+            if (opcode === ScriptOpcode.PUSH_CONSTANT_STRING) {
+                stringOperands[pc] = stream.gjstr(0);
+            } else if (isLargeOperand(opcode)) {
+                intOperands[pc] = stream.g4();
+            } else {
+                intOperands[pc] = stream.g1();
+            }
+            codes[pc++] = opcode;
+        }
+
+        return new ScriptFile(id, intLocalCount, stringLocalCount, intArgCount, stringArgCount, switchTable, info, codes, intOperands, stringOperands);
     }
 
     /**
