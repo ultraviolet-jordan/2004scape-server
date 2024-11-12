@@ -1291,6 +1291,14 @@ impl ScriptState {
         }
     }
 
+    pub fn get_active_player1(&self) -> &Rc<Player> {
+        return &self.active_player;
+    }
+
+    pub fn get_active_player2(&self) -> &Rc<Player> {
+        return &self.active_player2;
+    }
+
     #[inline(always)]
     pub fn get_active_npc(&self) -> Result<Rc<Npc>, String> {
         let npc: Rc<Npc> = match self.int_operand() {

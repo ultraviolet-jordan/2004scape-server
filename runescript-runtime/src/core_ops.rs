@@ -1,5 +1,31 @@
+use crate::player_ops::Player;
 use crate::script::{ScriptExecutionState, ScriptOpcode, ScriptState};
 use crate::Engine;
+use std::rc::Rc;
+use wasm_bindgen::prelude::wasm_bindgen;
+use wasm_bindgen::{JsCast, JsValue};
+
+pub enum VarValue {
+    String(String),
+    Int(i32),
+}
+
+#[wasm_bindgen]
+extern "C" {
+    pub type VarPlayerType;
+
+    #[wasm_bindgen(method, getter = id)]
+    pub fn id(this: &VarPlayerType) -> u16;
+
+    #[wasm_bindgen(method, getter = debugname)]
+    pub fn debugname(this: &VarPlayerType) -> String;
+
+    #[wasm_bindgen(method, getter = protect)]
+    pub fn protect(this: &VarPlayerType) -> bool;
+
+    #[wasm_bindgen(method, js_name = isString)]
+    pub fn is_string(this: &VarPlayerType) -> bool;
+}
 
 #[inline(always)]
 #[rustfmt::skip]
@@ -10,8 +36,8 @@ pub fn perform_core_operation(
 ) -> Result<(), String> {
     return match code {
         ScriptOpcode::PushConstantInt => push_constant_int(state),
-        ScriptOpcode::PushVarp => Err(format!("Unimplemented! {:?}", code)),
-        ScriptOpcode::PopVarp => Err(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::PushVarp => push_varp(engine, state),
+        ScriptOpcode::PopVarp => pop_varp(engine, state),
         ScriptOpcode::PushConstantString => push_constant_string(state),
         ScriptOpcode::PushVarn => Err(format!("Unimplemented! {:?}", code)),
         ScriptOpcode::PopVarn => Err(format!("Unimplemented! {:?}", code)),
@@ -55,13 +81,77 @@ fn push_constant_int(state: &mut ScriptState) -> Result<(), String> {
 }
 
 #[inline(always)]
-fn push_varp(_: &mut ScriptState) -> Result<(), String> {
-    return Err("Not implemented".to_string());
+fn push_varp(engine: &Engine, state: &mut ScriptState) -> Result<(), String> {
+    let secondary: usize = state.int_operand() >> 16 & 0x1;
+    if secondary == 1 && state.get_active_player2().is_null() {
+        return Err(String::from("No secondary active_player."));
+    } else if secondary == 0 && state.get_active_player1().is_null() {
+        return Err(String::from("No active_player."));
+    }
+
+    let varp_type: VarPlayerType = engine.check_varp((state.int_operand() & 0xffff) as i32)?;
+    let player: &Rc<Player> = if secondary == 1 {
+        state.get_active_player2()
+    } else {
+        state.get_active_player1()
+    };
+    if varp_type.is_string() {
+        if let Some(str) = player.get_var(varp_type.id()).as_string() {
+            state.push_string(str);
+        } else {
+            return Err(String::from("Expected a string varp value."));
+        }
+    } else {
+        if let Some(num) = player.get_var(varp_type.id()).as_f64() {
+            state.push_int(num as i32);
+        } else {
+            return Err(String::from("Expected a numeric varp value."));
+        }
+    }
+    return Ok(());
 }
 
 #[inline(always)]
-fn pop_varp(_: &mut ScriptState) -> Result<(), String> {
-    return Err("Not implemented".to_string());
+fn pop_varp(engine: &Engine, state: &mut ScriptState) -> Result<(), String> {
+    let secondary: usize = state.int_operand() >> 16 & 0x1;
+    if secondary == 1 && state.get_active_player2().is_null() {
+        return Err(String::from("No secondary active_player."));
+    } else if secondary == 0 && state.get_active_player1().is_null() {
+        return Err(String::from("No active_player."));
+    }
+
+    let varp_type: VarPlayerType = engine.check_varp((state.int_operand() & 0xffff) as i32)?;
+    if !state.pointer_get(ScriptState::PROTECTED_ACTIVE_PLAYER[secondary]) && varp_type.protect() {
+        return Err(format!(
+            "&{} requires protected access",
+            varp_type.debugname()
+        ));
+    }
+
+    if varp_type.is_string() {
+        let value: String = state.pop_string();
+        if secondary == 1 {
+            state
+                .get_active_player2()
+                .set_var(varp_type.id(), JsValue::from(value));
+        } else {
+            state
+                .get_active_player1()
+                .set_var(varp_type.id(), JsValue::from(value));
+        }
+    } else {
+        let value: i32 = state.pop_int();
+        if secondary == 1 {
+            state
+                .get_active_player2()
+                .set_var(varp_type.id(), JsValue::from(value));
+        } else {
+            state
+                .get_active_player1()
+                .set_var(varp_type.id(), JsValue::from(value));
+        }
+    }
+    return Ok(());
 }
 
 #[inline(always)]

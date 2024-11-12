@@ -1,6 +1,6 @@
 use crate::bits::Bits;
 use crate::coord_grid::CoordGrid;
-use crate::core_ops::perform_core_operation;
+use crate::core_ops::{perform_core_operation, VarPlayerType};
 use crate::debug_ops::perform_debug_operation;
 use crate::math_ops::perform_math_operation;
 use crate::obj_ops::{perform_obj_operation, Obj, ObjType};
@@ -42,7 +42,10 @@ extern "C" {
     pub fn get_script(this: &Engine, script: usize) -> Option<ScriptFile>;
 
     #[wasm_bindgen(method, js_name = getObjType)]
-    pub fn get_obj_type(this: &Engine, id: i32) -> Option<ObjType>;
+    pub fn get_obj_type(this: &Engine, id: u16) -> Option<ObjType>;
+
+    #[wasm_bindgen(method, js_name = getVarpType)]
+    pub fn get_varp_type(this: &Engine, id: u16) -> Option<VarPlayerType>;
 
     #[wasm_bindgen(method, js_name = isProduction)]
     pub fn map_production(this: &Engine) -> bool;
@@ -73,7 +76,7 @@ impl Engine {
 
     #[inline(always)]
     pub fn check_obj(&self, id: i32) -> Result<ObjType, String> {
-        return self.get_obj_type(id).ok_or(format!(
+        return self.get_obj_type(id as u16).ok_or(format!(
             "An input for a [obj] type was not valid to use. Input was {}.",
             id
         ));
@@ -103,6 +106,14 @@ impl Engine {
             ));
         }
         return Ok(duration);
+    }
+
+    #[inline(always)]
+    pub fn check_varp(&self, id: i32) -> Result<VarPlayerType, String> {
+        return self.get_varp_type(id as u16).ok_or(format!(
+            "An input for a [varp] type was not valid to use. Input was {}.",
+            id
+        ));
     }
 }
 

@@ -113,4 +113,8 @@ export default class VarPlayerType extends ConfigType {
             printError(`Unrecognized varp config code: ${code}`);
         }
     }
+
+    isString(): boolean {
+        return this.type === ScriptVarType.STRING;
+    }
 }

@@ -6,12 +6,14 @@ import World from '#lostcity/engine/World.js';
 import ScriptProvider from '#lostcity/engine/script/ScriptProvider.js';
 import Environment from '#lostcity/util/Environment.js';
 import EntityLifeCycle from '#lostcity/entity/EntityLifeCycle.js';
+import VarPlayerType from '#lostcity/cache/config/VarPlayerType.js';
 
 export interface Engine {
     getPlayerByUid(uid: number): Player | null;
 
     getScript(script: number): ScriptFile | undefined;
     getObjType(id: number): ObjType | undefined;
+    getVarpType(id: number): VarPlayerType | undefined;
 
     isProduction(): boolean;
     isMembers(): boolean;
@@ -24,12 +26,16 @@ export default class ScriptEngine implements Engine {
         return World.getPlayerByUid(uid);
     }
 
+    getScript(script: number): ScriptFile | undefined {
+        return ScriptProvider.get(script)?._clone();
+    }
+
     getObjType(id: number): ObjType | undefined {
         return ObjType.get(id);
     }
 
-    getScript(script: number): ScriptFile | undefined {
-        return ScriptProvider.get(script)?._clone();
+    getVarpType(id: number): VarPlayerType | undefined {
+        return VarPlayerType.get(id);
     }
 
     isProduction(): boolean {

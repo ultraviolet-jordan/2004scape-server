@@ -45,6 +45,12 @@ extern "C" {
 
     #[wasm_bindgen(method, js_name = camReset)]
     pub fn cam_reset(this: &Player);
+
+    #[wasm_bindgen(method, js_name = setVar)]
+    pub fn set_var(this: &Player, id: u16, value: JsValue);
+
+    #[wasm_bindgen(method, js_name = getVar)]
+    pub fn get_var(this: &Player, id: u16) -> JsValue;
 }
 
 #[inline(always)]
