@@ -1,7 +1,6 @@
 use crate::player_ops::Player;
 use crate::script::{ScriptExecutionState, ScriptOpcode, ScriptState};
 use crate::Engine;
-use std::rc::Rc;
 use wasm_bindgen::prelude::wasm_bindgen;
 use wasm_bindgen::{JsCast, JsValue};
 
@@ -90,7 +89,7 @@ fn push_varp(engine: &Engine, state: &mut ScriptState) -> Result<(), String> {
     }
 
     let varp_type: VarPlayerType = engine.check_varp((state.int_operand() & 0xffff) as i32)?;
-    let player: &Rc<Player> = if secondary == 1 {
+    let player: &Player = if secondary == 1 {
         state.get_active_player2()
     } else {
         state.get_active_player1()

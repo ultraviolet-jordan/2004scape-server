@@ -4,7 +4,6 @@ use crate::obj_ops::Obj;
 use crate::player_ops::Player;
 use js_sys::{Array, Map};
 use std::collections::HashMap;
-use std::rc::Rc;
 use wasm_bindgen::prelude::wasm_bindgen;
 use wasm_bindgen::JsValue;
 
@@ -1030,14 +1029,14 @@ pub struct ScriptState {
     pointers: i32, // state pointers
     trigger: u8,
     _self: JsValue,
-    active_player: Rc<Player>,
-    active_player2: Rc<Player>,
-    active_npc: Rc<Npc>,
-    active_npc2: Rc<Npc>,
-    active_loc: Rc<Loc>,
-    active_loc2: Rc<Loc>,
-    active_obj: Rc<Obj>,
-    active_obj2: Rc<Obj>,
+    active_player: Player,
+    active_player2: Player,
+    active_npc: Npc,
+    active_npc2: Npc,
+    active_loc: Loc,
+    active_loc2: Loc,
+    active_obj: Obj,
+    active_obj2: Obj,
     last_int: i32,
     error: String,
 }
@@ -1255,10 +1254,10 @@ impl ScriptState {
     ///
     /// - This function does not modify the internal state; it only reads the current state.
     #[inline(always)]
-    pub fn get_active_player(&self) -> Result<Rc<Player>, String> {
-        let player: Rc<Player> = match self.int_operand() {
-            0 => self.active_player.clone(),
-            _ => self.active_player2.clone(),
+    pub fn get_active_player(&self) -> Result<&Player, String> {
+        let player: &Player = match self.int_operand() {
+            0 => &self.active_player,
+            _ => &self.active_player2,
         };
         if player.is_null() {
             return Err(String::from("Attempt to access null active_player"));
@@ -1286,24 +1285,24 @@ impl ScriptState {
     #[inline(always)]
     pub fn set_active_player(&mut self, player: Player) {
         match self.int_operand() {
-            0 => self.active_player = Rc::new(player),
-            _ => self.active_player2 = Rc::new(player),
+            0 => self.active_player = player,
+            _ => self.active_player2 = player,
         }
     }
 
-    pub fn get_active_player1(&self) -> &Rc<Player> {
+    pub fn get_active_player1(&self) -> &Player {
         return &self.active_player;
     }
 
-    pub fn get_active_player2(&self) -> &Rc<Player> {
+    pub fn get_active_player2(&self) -> &Player {
         return &self.active_player2;
     }
 
     #[inline(always)]
-    pub fn get_active_npc(&self) -> Result<Rc<Npc>, String> {
-        let npc: Rc<Npc> = match self.int_operand() {
-            0 => self.active_npc.clone(),
-            _ => self.active_npc2.clone(),
+    pub fn get_active_npc(&self) -> Result<&Npc, String> {
+        let npc: &Npc = match self.int_operand() {
+            0 => &self.active_npc,
+            _ => &self.active_npc2,
         };
         if npc.is_null() {
             return Err(String::from("Attempt to access null active_npc"));
@@ -1314,16 +1313,16 @@ impl ScriptState {
     #[inline(always)]
     pub fn set_active_npc(&mut self, npc: Npc) {
         match self.int_operand() {
-            0 => self.active_npc = Rc::new(npc),
-            _ => self.active_npc2 = Rc::new(npc),
+            0 => self.active_npc = npc,
+            _ => self.active_npc2 = npc,
         }
     }
 
     #[inline(always)]
-    pub fn get_active_obj(&self) -> Result<Rc<Obj>, String> {
-        let npc: Rc<Obj> = match self.int_operand() {
-            0 => self.active_obj.clone(),
-            _ => self.active_obj2.clone(),
+    pub fn get_active_obj(&self) -> Result<&Obj, String> {
+        let npc: &Obj = match self.int_operand() {
+            0 => &self.active_obj,
+            _ => &self.active_obj2,
         };
         if npc.is_null() {
             return Err(String::from("Attempt to access null active_obj"));
@@ -1334,8 +1333,8 @@ impl ScriptState {
     #[inline(always)]
     pub fn set_active_obj(&mut self, obj: Obj) {
         match self.int_operand() {
-            0 => self.active_obj = Rc::new(obj),
-            _ => self.active_obj2 = Rc::new(obj),
+            0 => self.active_obj = obj,
+            _ => self.active_obj2 = obj,
         }
     }
 
@@ -1434,14 +1433,14 @@ impl ScriptState {
             pointers: 0,
             trigger,
             _self: JsValue::NULL,
-            active_player: Rc::new(Player::from(JsValue::NULL)),
-            active_player2: Rc::new(Player::from(JsValue::NULL)),
-            active_npc: Rc::new(Npc::from(JsValue::NULL)),
-            active_npc2: Rc::new(Npc::from(JsValue::NULL)),
-            active_loc: Rc::new(Loc::from(JsValue::NULL)),
-            active_loc2: Rc::new(Loc::from(JsValue::NULL)),
-            active_obj: Rc::new(Obj::from(JsValue::NULL)),
-            active_obj2: Rc::new(Obj::from(JsValue::NULL)),
+            active_player: Player::from(JsValue::NULL),
+            active_player2: Player::from(JsValue::NULL),
+            active_npc: Npc::from(JsValue::NULL),
+            active_npc2: Npc::from(JsValue::NULL),
+            active_loc: Loc::from(JsValue::NULL),
+            active_loc2: Loc::from(JsValue::NULL),
+            active_obj: Obj::from(JsValue::NULL),
+            active_obj2: Obj::from(JsValue::NULL),
             last_int: 0,
             error: String::new(),
         }
@@ -1731,13 +1730,13 @@ impl ScriptState {
     #[inline(always)]
     #[wasm_bindgen(method, setter = _activePlayer)]
     pub fn set_active_player1(&mut self, player: Player) {
-        self.active_player = Rc::new(player);
+        self.active_player = player;
     }
 
     #[inline(always)]
     #[wasm_bindgen(method, setter = _activePlayer2)]
     pub fn set_active_player2(&mut self, player: Player) {
-        self.active_player2 = Rc::new(player);
+        self.active_player2 = player;
     }
 
     #[inline(always)]
@@ -1759,13 +1758,13 @@ impl ScriptState {
     #[inline(always)]
     #[wasm_bindgen(method, setter = _activeNpc)]
     pub fn set_active_npc1(&mut self, npc: Npc) {
-        self.active_npc = Rc::new(npc);
+        self.active_npc = npc;
     }
 
     #[inline(always)]
     #[wasm_bindgen(method, setter = _activeNpc2)]
     pub fn set_active_npc2(&mut self, npc: Npc) {
-        self.active_npc2 = Rc::new(npc);
+        self.active_npc2 = npc;
     }
 
     #[inline(always)]
@@ -1779,25 +1778,25 @@ impl ScriptState {
     #[inline(always)]
     #[wasm_bindgen(method, setter = _activeLoc)]
     pub fn set_active_loc1(&mut self, loc: Loc) {
-        self.active_loc = Rc::new(loc);
+        self.active_loc = loc;
     }
 
     #[inline(always)]
     #[wasm_bindgen(method, setter = _activeLoc2)]
     pub fn set_active_loc2(&mut self, loc: Loc) {
-        self.active_loc2 = Rc::new(loc);
+        self.active_loc2 = loc;
     }
 
     #[inline(always)]
     #[wasm_bindgen(method, setter = _activeObj)]
     pub fn set_active_obj1(&mut self, obj: Obj) {
-        self.active_obj = Rc::new(obj);
+        self.active_obj = obj;
     }
 
     #[inline(always)]
     #[wasm_bindgen(method, setter = _activeObj2)]
     pub fn set_active_obj2(&mut self, obj: Obj) {
-        self.active_obj2 = Rc::new(obj);
+        self.active_obj2 = obj;
     }
 
     #[inline(always)]

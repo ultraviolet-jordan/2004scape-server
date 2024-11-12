@@ -1,7 +1,6 @@
 use crate::coord_grid::CoordGrid;
 use crate::script::{ScriptOpcode, ScriptState};
 use crate::Engine;
-use std::rc::Rc;
 use wasm_bindgen::prelude::wasm_bindgen;
 use wasm_bindgen::{JsCast, JsValue};
 
@@ -203,7 +202,7 @@ fn cam_reset(state: &mut ScriptState) -> Result<(), String> {
 
 #[inline(always)]
 fn coord(state: &mut ScriptState) -> Result<(), String> {
-    let player: Rc<Player> = state.get_active_player()?;
+    let player: &Player = state.get_active_player()?;
     let coord: CoordGrid = CoordGrid::from(player.x(), player.level(), player.z());
     state.push_int(coord.coord as i32);
     return Ok(());
