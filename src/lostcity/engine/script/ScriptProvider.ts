@@ -1,4 +1,4 @@
-import Packet from '#jagex2/io/Packet.js';
+import Packet from '#jagex/io/Packet.js';
 
 import ServerTriggerType from '#lostcity/engine/script/ServerTriggerType.js';
 

@@ -4,12 +4,12 @@ import { Worker as NodeWorker } from 'worker_threads';
 // deps
 import kleur from 'kleur';
 
-// jagex2
-import LinkList from '#jagex2/datastruct/LinkList.js';
+// jagex
+import LinkList from '#jagex/datastruct/LinkList.js';
 
-import { fromBase37, toBase37 } from '#jagex2/jstring/JString.js';
+import { fromBase37, toBase37 } from '#jagex/jstring/JString.js';
 
-import Packet from '#jagex2/io/Packet.js';
+import Packet from '#jagex/io/Packet.js';
 
 // lostcity
 import CategoryType from '#lostcity/cache/config/CategoryType.js';
@@ -561,13 +561,9 @@ class World {
                 setTimeout(this.cycle.bind(this), this.tickRate - this.cycleStats[WorldStat.CYCLE]);
             }
 
-            if (Environment.NODE_DEBUG_PROFILER) {
-                printDebug(
-                    `| [tick ${this.currentTick}; ${this.cycleStats[WorldStat.CYCLE]}/${this.tickRate}ms] | ${this.getTotalPlayers()} players | ${this.getTotalNpcs()} npcs | ${this.gameMap.getTotalZones()} zones | ${this.gameMap.getTotalLocs()} locs | ${this.gameMap.getTotalObjs()} objs |`
-                );
-                printDebug(
-                    `| ${this.cycleStats[WorldStat.WORLD]}ms world | ${this.cycleStats[WorldStat.CLIENT_IN]}ms client in | ${this.cycleStats[WorldStat.NPC]}ms npcs | ${this.cycleStats[WorldStat.PLAYER]}ms players | ${this.cycleStats[WorldStat.LOGOUT]}ms logout | ${this.cycleStats[WorldStat.LOGIN]}ms login | ${this.cycleStats[WorldStat.ZONE]}ms zones | ${this.cycleStats[WorldStat.CLIENT_OUT]}ms client out | ${this.cycleStats[WorldStat.CLEANUP]}ms cleanup |`
-                );
+            if (Environment.NODE_DEBUG_PROFILE) {
+                printDebug(`| [tick ${this.currentTick}; ${this.cycleStats[WorldStat.CYCLE]}/${this.tickRate}ms] | ${this.getTotalPlayers()} players | ${this.getTotalNpcs()} npcs | ${this.gameMap.getTotalZones()} zones | ${this.gameMap.getTotalLocs()} locs | ${this.gameMap.getTotalObjs()} objs |`);
+                printDebug(`| ${this.cycleStats[WorldStat.WORLD]}ms world | ${this.cycleStats[WorldStat.CLIENT_IN]}ms client in | ${this.cycleStats[WorldStat.NPC]}ms npcs | ${this.cycleStats[WorldStat.PLAYER]}ms players | ${this.cycleStats[WorldStat.LOGOUT]}ms logout | ${this.cycleStats[WorldStat.LOGIN]}ms login | ${this.cycleStats[WorldStat.ZONE]}ms zones | ${this.cycleStats[WorldStat.CLIENT_OUT]}ms client out | ${this.cycleStats[WorldStat.CLEANUP]}ms cleanup |`);
                 printDebug('----');
             }
         } catch (err) {

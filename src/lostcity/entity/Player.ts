@@ -1,7 +1,7 @@
 import 'dotenv/config';
 
-import Packet from '#jagex2/io/Packet.js';
-import { fromBase37, toDisplayName } from '#jagex2/jstring/JString.js';
+import Packet from '#jagex/io/Packet.js';
+import {fromBase37, toDisplayName} from '#jagex/jstring/JString.js';
 
 import FontType from '#lostcity/cache/config/FontType.js';
 import Component from '#lostcity/cache/config/Component.js';
@@ -38,8 +38,8 @@ import ServerTriggerType from '#lostcity/engine/script/ServerTriggerType.js';
 
 import Environment from '#lostcity/util/Environment.js';
 
-import LinkList from '#jagex2/datastruct/LinkList.js';
-import DoublyLinkList from '#jagex2/datastruct/DoublyLinkList.js';
+import LinkList from '#jagex/datastruct/LinkList.js';
+import DoublyLinkList from '#jagex/datastruct/DoublyLinkList.js';
 
 import { CollisionFlag } from '@2004scape/rsmod-pathfinder';
 import { PRELOADED, PRELOADED_CRC } from '#lostcity/server/PreloadedPacks.js';
@@ -133,7 +133,7 @@ export default class Player extends PathingEntity {
     save() {
         const sav = Packet.alloc(1);
         sav.p2(0x2004); // magic
-        sav.p2(4); // version
+        sav.p2(5); // version
 
         sav.p2(this.x);
         sav.p2(this.z);
@@ -174,6 +174,7 @@ export default class Player extends PathingEntity {
             }
 
             sav.p2(typeId);
+            sav.p2(inventory.capacity);
             for (let slot = 0; slot < inventory.capacity; slot++) {
                 const obj = inventory.get(slot);
                 if (!obj) {
@@ -553,7 +554,7 @@ export default class Player extends PathingEntity {
         }
         if (!this.hasWaypoints()) {
             this.moveClickRequest = false;
-            this.unsetMapFlag();
+            // this.unsetMapFlag(); // should be handled client-sided
         }
         return moved;
     }
@@ -1517,6 +1518,7 @@ export default class Player extends PathingEntity {
                 // replenish 1 of the stat upon levelup.
                 this.levels[stat] += 1;
             }
+            this.changeStat(stat);
             const script = ScriptProvider.getByTriggerSpecific(ServerTriggerType.ADVANCESTAT, stat, -1);
 
             if (script) {
@@ -1527,6 +1529,13 @@ export default class Player extends PathingEntity {
         if (this.combatLevel != this.getCombatLevel()) {
             this.combatLevel = this.getCombatLevel();
             this.generateAppearance(InvType.WORN);
+        }
+    }
+
+    changeStat(stat: number) {
+        const script = ScriptProvider.getByTrigger(ServerTriggerType.CHANGESTAT, stat, -1);
+        if (script) {
+            this.enqueueScript(script, PlayerQueueType.ENGINE);
         }
     }
 

@@ -1,4 +1,4 @@
-import Linkable from '#jagex2/datastruct/Linkable.js';
+import Linkable from '#jagex/datastruct/Linkable.js';
 import { ScriptFile, ScriptState } from '../../../runescript-runtime/dist/runescript-runtime.js';
 
 export enum NpcQueueType {
