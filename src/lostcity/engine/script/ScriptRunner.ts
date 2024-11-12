@@ -8,6 +8,7 @@ import Npc from '#lostcity/entity/Npc.js';
 import Player from '#lostcity/entity/Player.js';
 import { printWarning } from '#lostcity/util/Logger.js';
 import World from '#lostcity/engine/World.js';
+import Environment from '#lostcity/util/Environment.js';
 
 // script executor
 export default class ScriptRunner {
@@ -87,13 +88,15 @@ export default class ScriptRunner {
         }
 
         const start: number = performance.now() * 1000;
-        state.execute(World);
+        state.execute(World.scriptEngine);
         const time: number = (performance.now() * 1000 - start) | 0;
-        const message: string = `Warning [cpu time]: Script: ${state.scriptName}, time: ${time}us, opcount: ${state.opcount}`;
-        if (state.self instanceof Player) {
-            state.self.wrappedMessageGame(message);
-        } else {
-            printWarning(message);
+        if (Environment.NODE_DEBUG_PROFILER && time > 1000) {
+            const message: string = `Warning [cpu time]: Script: ${state.scriptName}, time: ${time}us, opcount: ${state.opcount}`;
+            if (state.self instanceof Player) {
+                state.self.wrappedMessageGame(message);
+            } else {
+                printWarning(message);
+            }
         }
 
         if (state.execution === ScriptExecutionState.Aborted) {
@@ -118,7 +121,9 @@ export default class ScriptRunner {
             // }
 
             if (state.self instanceof Player) {
-                state.self.wrappedMessageGame(state.error);
+                state.error.split('\n').forEach(line => {
+                    state.self.wrappedMessageGame(line);
+                });
 
                 // let trace = 1;
                 // for (let i = state.fp; i > 0; i--) {

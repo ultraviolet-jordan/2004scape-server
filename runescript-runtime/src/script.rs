@@ -1,5 +1,3 @@
-#![allow(non_snake_case)]
-
 use crate::loc_ops::Loc;
 use crate::npc_ops::Npc;
 use crate::obj_ops::Obj;
@@ -426,6 +424,7 @@ pub enum ScriptOpcode {
 }
 
 impl From<u16> for ScriptOpcode {
+    #[inline(always)]
     fn from(code: u16) -> ScriptOpcode {
         match code {
             // Core language ops (0-99)
@@ -995,6 +994,7 @@ pub enum ScriptPointer {
 }
 
 impl From<i32> for ScriptPointer {
+    #[inline(always)]
     fn from(value: i32) -> Self {
         match value {
             0 => ScriptPointer::ActivePlayer,
@@ -1023,10 +1023,8 @@ pub struct ScriptState {
     fp: usize, // frame pointer
     goto_frame_stack: Vec<GoToFrame>,
     goto_fp: usize,
-    int_stack: [i32; 1000],
-    isp: usize, // integer stack pointer
+    int_stack: Vec<i32>,
     string_stack: Vec<String>,
-    ssp: usize, // string stack pointer
     int_locals: Vec<i32>,
     string_locals: Vec<String>,
     pointers: i32, // state pointers
@@ -1083,13 +1081,15 @@ impl ScriptState {
     /// - Pops the most recent `GoSubFrame` from the `frame_stack`.
     /// - Restores the script, program counter (`pc`), and local variables (`int_locals` and `string_locals`) from the popped frame.
     /// - Decrements the frame pointer (`fp`) to reflect returning to the previous frame.
-    pub fn pop_frame(&mut self) {
-        let frame: GoSubFrame = self.frame_stack.pop().unwrap();
+    #[inline(always)]
+    pub fn pop_frame(&mut self) -> Result<(), String> {
+        let frame: GoSubFrame = self.frame_stack.pop().ok_or("Stack is empty".to_string())?;
         self.fp -= 1;
         self.script = frame.script;
         self.pc = frame.pc;
         self.int_locals = frame.int_locals;
         self.string_locals = frame.string_locals;
+        return Ok(());
     }
 
     /// Pushes a new subroutine frame onto the frame stack for the given script.
@@ -1118,6 +1118,7 @@ impl ScriptState {
     /// - Increments the frame pointer (`fp`) to reflect the new frame.
     /// - Resets the program counter (`pc`) to -1 to prepare for execution in the new subroutine.
     /// - Initializes local integer and string variables by popping them from the respective stacks.
+    #[inline(always)]
     pub fn gosub_frame(&mut self, script: ScriptFile) {
         self.frame_stack.push(GoSubFrame {
             script: self.script.clone(),
@@ -1167,6 +1168,7 @@ impl ScriptState {
     /// - Clears the `frame_stack`, discarding any previously saved frames.
     /// - Resets the frame pointer (`fp`) and program counter (`pc`).
     /// - Initializes local integer and string variables by popping them from the respective stacks.
+    #[inline(always)]
     pub fn goto_frame(&mut self, script: ScriptFile) {
         self.goto_frame_stack.push(GoToFrame {
             script: self.script.clone(),
@@ -1252,6 +1254,7 @@ impl ScriptState {
     /// # Side Effects
     ///
     /// - This function does not modify the internal state; it only reads the current state.
+    #[inline(always)]
     pub fn get_active_player(&self) -> Result<Rc<Player>, String> {
         let player: Rc<Player> = match self.int_operand() {
             0 => self.active_player.clone(),
@@ -1280,6 +1283,7 @@ impl ScriptState {
     ///
     /// - Modifies the internal state of the `ScriptState` by setting either `active_player` or `active_player2`
     ///   depending on the operand value.
+    #[inline(always)]
     pub fn set_active_player(&mut self, player: Player) {
         match self.int_operand() {
             0 => self.active_player = Rc::new(player),
@@ -1287,6 +1291,7 @@ impl ScriptState {
         }
     }
 
+    #[inline(always)]
     pub fn get_active_npc(&self) -> Result<Rc<Npc>, String> {
         let npc: Rc<Npc> = match self.int_operand() {
             0 => self.active_npc.clone(),
@@ -1298,6 +1303,7 @@ impl ScriptState {
         return Ok(npc);
     }
 
+    #[inline(always)]
     pub fn set_active_npc(&mut self, npc: Npc) {
         match self.int_operand() {
             0 => self.active_npc = Rc::new(npc),
@@ -1305,6 +1311,7 @@ impl ScriptState {
         }
     }
 
+    #[inline(always)]
     pub fn get_active_obj(&self) -> Result<Rc<Obj>, String> {
         let npc: Rc<Obj> = match self.int_operand() {
             0 => self.active_obj.clone(),
@@ -1316,6 +1323,7 @@ impl ScriptState {
         return Ok(npc);
     }
 
+    #[inline(always)]
     pub fn set_active_obj(&mut self, obj: Obj) {
         match self.int_operand() {
             0 => self.active_obj = Rc::new(obj),
@@ -1323,10 +1331,12 @@ impl ScriptState {
         }
     }
 
+    #[inline(always)]
     pub fn get_script(&self) -> &ScriptFile {
         return &self.script;
     }
 
+    #[inline(always)]
     pub fn get_switch_table(
         &self,
         key: i32,
@@ -1337,30 +1347,17 @@ impl ScriptState {
         return Ok(table.get(&switch).copied());
     }
 
+    #[inline(always)]
     pub fn get_fp(&self) -> usize {
         return self.fp;
     }
 
-    pub fn get_isp(&self) -> usize {
-        return self.isp;
-    }
-
-    pub fn set_isp(&mut self, isp: usize) {
-        self.isp = isp;
-    }
-
-    pub fn get_ssp(&self) -> usize {
-        return self.ssp;
-    }
-
-    pub fn set_ssp(&mut self, ssp: usize) {
-        self.ssp = ssp;
-    }
-
+    #[inline(always)]
     pub fn get_int_locals(&mut self) -> &mut Vec<i32> {
         return &mut self.int_locals;
     }
 
+    #[inline(always)]
     pub fn opcodes(&self) -> &Vec<u16> {
         return &self.script.codes;
     }
@@ -1422,10 +1419,8 @@ impl ScriptState {
             fp: 0,
             goto_frame_stack: Vec::with_capacity(50),
             goto_fp: 0,
-            int_stack: [0; 1000],
-            isp: 0,
-            string_stack: vec![String::new(); 1000],
-            ssp: 0,
+            int_stack: Vec::with_capacity(1000),
+            string_stack: Vec::with_capacity(1000),
             int_locals,
             string_locals,
             pointers: 0,
@@ -1462,8 +1457,7 @@ impl ScriptState {
     #[inline(always)]
     #[wasm_bindgen(method, js_name = pushInt)]
     pub fn push_int(&mut self, value: i32) {
-        unsafe { *self.int_stack.as_mut_ptr().add(self.isp) = value };
-        self.isp += 1;
+        self.int_stack.push(value);
     }
 
     /// Pops the top integer value from the integer stack.
@@ -1477,16 +1471,16 @@ impl ScriptState {
     #[inline(always)]
     #[wasm_bindgen(method, js_name = popInt)]
     pub fn pop_int(&mut self) -> i32 {
-        self.isp -= 1;
-        return unsafe { *self.int_stack.as_ptr().add(self.isp) };
+        return self.int_stack.pop().unwrap();
     }
 
     // ---- strings
 
+    #[rustfmt::skip]
     #[inline(always)]
     #[wasm_bindgen(method, js_name = stringOperand)]
     pub fn string_operand(&self) -> String {
-        return self.script.string_operands[self.pc as usize].clone();
+        return unsafe { (*self.script.string_operands.as_ptr().add(self.pc as usize)).clone() };
     }
 
     /// Pushes a `String` value onto the string stack.
@@ -1501,8 +1495,7 @@ impl ScriptState {
     #[inline(always)]
     #[wasm_bindgen(method, js_name = pushString)]
     pub fn push_string(&mut self, value: String) {
-        self.string_stack[self.ssp] = value;
-        self.ssp += 1;
+        self.string_stack.push(value);
     }
 
     /// Pops the top string value from the string stack.
@@ -1516,8 +1509,7 @@ impl ScriptState {
     #[inline(always)]
     #[wasm_bindgen(method, js_name = popString)]
     pub fn pop_string(&mut self) -> String {
-        self.ssp -= 1;
-        return self.string_stack[self.ssp].clone();
+        return self.string_stack.pop().unwrap();
     }
 
     // ---- pointers
@@ -1720,6 +1712,12 @@ impl ScriptState {
     #[wasm_bindgen(method, setter = self)]
     pub fn set_self(&mut self, _self: JsValue) {
         self._self = _self;
+    }
+
+    #[inline(always)]
+    #[wasm_bindgen(method, getter = self)]
+    pub fn get_self(&mut self) -> JsValue {
+        return self._self.clone();
     }
 
     #[inline(always)]

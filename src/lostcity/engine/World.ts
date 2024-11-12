@@ -35,7 +35,6 @@ import VarPlayerType from '#lostcity/cache/config/VarPlayerType.js';
 import VarSharedType from '#lostcity/cache/config/VarSharedType.js';
 import WordEnc from '#lostcity/cache/wordenc/WordEnc.js';
 
-import Engine from '#lostcity/engine/Engine.js';
 import { CoordGrid } from '#lostcity/engine/CoordGrid.js';
 import GameMap, { changeLocCollision, changeNpcCollision, changePlayerCollision } from '#lostcity/engine/GameMap.js';
 import { Inventory } from '#lostcity/engine/Inventory.js';
@@ -44,7 +43,7 @@ import WorldStat from '#lostcity/engine/WorldStat.js';
 
 import ScriptProvider from '#lostcity/engine/script/ScriptProvider.js';
 import ScriptRunner from '#lostcity/engine/script/ScriptRunner.js';
-import { ScriptExecutionState, ScriptFile, ScriptPointer, ScriptState } from '../../../runescript-runtime/dist/runescript-runtime.js';
+import { ScriptExecutionState, ScriptPointer, ScriptState } from '../../../runescript-runtime/dist/runescript-runtime.js';
 import ServerTriggerType from '#lostcity/engine/script/ServerTriggerType.js';
 import Zone from '#lostcity/engine/zone/Zone.js';
 import PlayerRenderer from '#lostcity/engine/renderer/PlayerRenderer.js';
@@ -78,9 +77,9 @@ import { FriendsServerOpcodes } from '#lostcity/server/FriendServer.js';
 import Environment from '#lostcity/util/Environment.js';
 import { printDebug, printError, printInfo } from '#lostcity/util/Logger.js';
 import { createWorker } from '#lostcity/util/WorkerFactory.js';
-import { check, CoordValid, DurationValid, ObjStackValid, ObjTypeValid } from '#lostcity/engine/script/ScriptValidators.js';
+import ScriptEngine from '#lostcity/engine/Engine.js';
 
-class World implements Engine {
+class World {
     private friendThread: Worker | NodeWorker = createWorker(Environment.STANDALONE_BUNDLE ? 'FriendThread.js' : './src/lostcity/server/FriendThread.ts');
     private devThread: Worker | NodeWorker | null = null;
 
@@ -98,6 +97,8 @@ class World implements Engine {
     private static readonly SHUTDOWN_TICKS: number = 24000;
     private static readonly TIMEOUT_IDLE_TICKS: number = 75;
     private static readonly TIMEOUT_LOGOUT_TICKS: number = 100;
+
+    readonly scriptEngine: ScriptEngine;
 
     // the game/zones map
     readonly gameMap: GameMap;
@@ -131,6 +132,7 @@ class World implements Engine {
     varsString: string[] = [];
 
     constructor() {
+        this.scriptEngine = new ScriptEngine();
         this.gameMap = new GameMap(Environment.NODE_MEMBERS);
         this.invs = new Set();
         this.newPlayers = new Set();
@@ -158,64 +160,6 @@ class World implements Engine {
             }
         }
     }
-
-    // ---- implementations
-
-    getPlayerByUid(uid: number): Player | null {
-        const pid = uid & 0x7ff;
-        const name37 = (uid >> 11) & 0x1fffff;
-
-        const player = this.getPlayer(pid);
-        if (!player) {
-            return null;
-        }
-
-        if (Number(player.username37 & 0x1fffffn) !== name37) {
-            return null;
-        }
-
-        return player;
-    }
-
-    getScript(script: number): ScriptFile | undefined {
-        // console.log(`script: $${script};`);
-        // console.log(ScriptProvider.get(script));
-        return ScriptProvider.get(script)?._clone();
-    }
-
-    isProduction(): boolean {
-        return Environment.NODE_PRODUCTION;
-    }
-
-    objAddAll(coord: number, id: number, count: number, duration: number): Obj | null {
-        const objType: ObjType = check(id, ObjTypeValid);
-        check(duration, DurationValid);
-        const position: CoordGrid = check(coord, CoordValid);
-        check(count, ObjStackValid);
-
-        if (objType.dummyitem !== 0) {
-            throw new Error(`attempted to add dummy item: ${objType.debugname}`);
-        }
-
-        if (objType.members && !Environment.NODE_MEMBERS) {
-            return null;
-        }
-
-        if (!objType.stackable || count === 1) {
-            let obj: Obj | null = null;
-            for (let i = 0; i < count; i++) {
-                obj = new Obj(position.level, position.x, position.z, EntityLifeCycle.DESPAWN, id, 1);
-                this.addObj(obj, -1, duration);
-            }
-            return obj;
-        }
-
-        const obj: Obj = new Obj(position.level, position.x, position.z, EntityLifeCycle.DESPAWN, id, count);
-        this.addObj(obj, -1, duration);
-        return obj;
-    }
-
-    // ---- member functions
 
     rebuild() {
         if (this.devThread) {
@@ -1586,6 +1530,22 @@ class World implements Engine {
 
     getPlayer(pid: number): Player | undefined {
         return this.players.get(pid);
+    }
+
+    getPlayerByUid(uid: number): Player | null {
+        const pid = uid & 0x7ff;
+        const name37 = (uid >> 11) & 0x1fffff;
+
+        const player = this.getPlayer(pid);
+        if (!player) {
+            return null;
+        }
+
+        if (Number(player.username37 & 0x1fffffn) !== name37) {
+            return null;
+        }
+
+        return player;
     }
 
     getPlayerByUsername(username: string): Player | undefined {

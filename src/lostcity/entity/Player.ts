@@ -71,6 +71,7 @@ import MessageEncoder from '#lostcity/network/outgoing/codec/MessageEncoder.js';
 import ServerProtRepository from '#lostcity/network/225/outgoing/prot/ServerProtRepository.js';
 import ServerProt from '#lostcity/network/225/outgoing/prot/ServerProt.js';
 import { NetworkPlayer } from '#lostcity/entity/NetworkPlayer.js';
+import CamReset from '#lostcity/network/outgoing/model/CamReset.js';
 
 const levelExperience = new Int32Array(99);
 
@@ -1765,7 +1766,7 @@ export default class Player extends PathingEntity {
         return state;
     }
 
-    executeScript(script: ScriptState, protect: boolean = false, force: boolean = false) {
+    executeScript(script: ScriptState, protect: boolean = false, force: boolean = false): void {
         // printDebug('Executing', script.script.info.scriptName);
 
         const state: ScriptExecutionState | number = this.runScript(script, protect, force);
@@ -1794,7 +1795,7 @@ export default class Player extends PathingEntity {
         }
     }
 
-    wrappedMessageGame(mes: string) {
+    wrappedMessageGame(mes: string): void {
         const font = FontType.get(1);
         const lines = font.split(mes, 456);
         for (const line of lines) {
@@ -1802,7 +1803,7 @@ export default class Player extends PathingEntity {
         }
     }
 
-    write(message: OutgoingMessage) {
+    write(message: OutgoingMessage): void {
         if (!isNetworkPlayer(this)) {
             return;
         }
@@ -1814,28 +1815,28 @@ export default class Player extends PathingEntity {
         }
     }
 
-    unsetMapFlag() {
+    unsetMapFlag(): void {
         this.clearWaypoints();
         this.write(new UnsetMapFlag());
     }
 
-    hintNpc(nid: number) {
+    hintNpc(nid: number): void {
         this.write(new HintArrow(1, nid, 0, 0, 0, 0));
     }
 
-    hintTile(offset: number, x: number, z: number, height: number) {
+    hintTile(offset: number, x: number, z: number, height: number): void {
         this.write(new HintArrow(offset, 0, 0, x, z, height));
     }
 
-    hintPlayer(pid: number) {
+    hintPlayer(pid: number): void {
         this.write(new HintArrow(10, 0, pid, 0, 0, 0));
     }
 
-    stopHint() {
+    stopHint(): void {
         this.write(new HintArrow(-1, 0, 0, 0, 0, 0));
     }
 
-    lastLoginInfo(lastLoginIp: number, daysSinceLogin: number, daysSinceRecoveryChange: number, unreadMessageCount: number) {
+    lastLoginInfo(lastLoginIp: number, daysSinceLogin: number, daysSinceRecoveryChange: number, unreadMessageCount: number): void {
         this.write(new LastLoginInfo(lastLoginIp, daysSinceLogin, daysSinceRecoveryChange, unreadMessageCount));
         this.modalState |= 16;
     }
@@ -1848,8 +1849,12 @@ export default class Player extends PathingEntity {
         // to be overridden
     }
 
-    messageGame(msg: string) {
+    messageGame(msg: string): void {
         this.write(new MessageGame(msg));
+    }
+
+    camReset(): void {
+        this.write(new CamReset());
     }
 }
 

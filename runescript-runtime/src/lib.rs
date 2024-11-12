@@ -1,15 +1,15 @@
 use crate::bits::Bits;
-use crate::core_ops::CoreOps;
-use crate::debug_ops::DebugOps;
-use crate::math_ops::MathOps;
-use crate::obj_ops::{Obj, ObjOps};
-use crate::player_ops::{Player, PlayerOps};
+use crate::coord_grid::CoordGrid;
+use crate::core_ops::perform_core_operation;
+use crate::debug_ops::perform_debug_operation;
+use crate::math_ops::perform_math_operation;
+use crate::obj_ops::{perform_obj_operation, Obj, ObjType};
+use crate::player_ops::{perform_player_operation, Player};
 use crate::script::{ScriptExecutionState, ScriptFile, ScriptOpcode, ScriptState};
-use crate::server_ops::ServerOps;
-use crate::string_ops::StringOps;
+use crate::server_ops::perform_server_operation;
+use crate::string_ops::perform_string_operation;
 use crate::trig::Trig;
 use once_cell::sync::Lazy;
-use std::ptr::addr_of;
 use wasm_bindgen::prelude::wasm_bindgen;
 use wasm_bindgen::JsValue;
 
@@ -29,10 +29,9 @@ mod trig;
 
 static TRIG: Lazy<Trig> = Lazy::new(Trig::new);
 static BITS: Lazy<Bits> = Lazy::new(Bits::new);
-static CORE_OPS: Lazy<CoreOps> = Lazy::new(CoreOps::new);
-static MATH_OPS: Lazy<MathOps> = Lazy::new(MathOps::new);
 
 #[wasm_bindgen]
+#[rustfmt::skip]
 extern "C" {
     pub type Engine;
 
@@ -42,15 +41,69 @@ extern "C" {
     #[wasm_bindgen(method, js_name = getScript)]
     pub fn get_script(this: &Engine, script: usize) -> Option<ScriptFile>;
 
+    #[wasm_bindgen(method, js_name = getObjType)]
+    pub fn get_obj_type(this: &Engine, id: i32) -> Option<ObjType>;
+
     #[wasm_bindgen(method, js_name = isProduction)]
     pub fn map_production(this: &Engine) -> bool;
 
+    #[wasm_bindgen(method, js_name = isMembers)]
+    pub fn map_members(this: &Engine) -> bool;
+
     #[wasm_bindgen(method, js_name = objAddAll)]
-    pub fn obj_addall(this: &Engine, coord: i32, id: i32, count: i32, duration: i32)
-        -> Option<Obj>;
+    pub fn obj_addall(this: &Engine, x: u16, y: u8, z: u16, id: i32, count: i32, duration: i32, stackable: bool) -> Obj;
 
     #[wasm_bindgen(js_namespace = console)]
     fn log(s: &str);
+}
+
+impl Engine {
+    #[inline(always)]
+    pub fn check_coord(&self, coord: i32) -> Result<CoordGrid, String> {
+        if coord < 0 {
+            return Err(format!(
+                "An input for a [coord] was out of range. Range should be: {} to {}. Input was {}.",
+                0,
+                i32::MAX,
+                coord
+            ));
+        }
+        return Ok(CoordGrid::new(coord as u32));
+    }
+
+    #[inline(always)]
+    pub fn check_obj(&self, id: i32) -> Result<ObjType, String> {
+        return self.get_obj_type(id).ok_or(format!(
+            "An input for a [obj] type was not valid to use. Input was {}.",
+            id
+        ));
+    }
+
+    #[inline(always)]
+    pub fn check_obj_stack(&self, count: i32) -> Result<i32, String> {
+        if count < 1 {
+            return Err(format!(
+                "An input for a [objstack] was out of range. Range should be: {} to {}. Input was {}.",
+                1,
+                i32::MAX,
+                count
+            ));
+        }
+        return Ok(count);
+    }
+
+    #[inline(always)]
+    pub fn check_duration(&self, duration: i32) -> Result<i32, String> {
+        if duration < 1 {
+            return Err(format!(
+                "An input for a [duration] was out of range. Range should be: {} to {}. Input was {}.",
+                1,
+                i32::MAX,
+                duration
+            ));
+        }
+        return Ok(duration);
+    }
 }
 
 #[wasm_bindgen]
@@ -93,11 +146,10 @@ pub fn throw_error(state: &mut ScriptState, message: &str) {
     state.set_execution_state(ScriptExecutionState::Aborted);
     state.set_error(format!(
         r#"
-        script error: {message}
-        file: {file_name}
+        Script Error: {message}
+        File: {file_name}
 
-        1. {name} - {file_name}:{line}
-        "#,
+        1. {name} - {file_name}:{line}"#,
         message = message,
         file_name = file_name,
         name = script_name,
@@ -105,6 +157,7 @@ pub fn throw_error(state: &mut ScriptState, message: &str) {
     ));
 }
 
+#[inline(always)]
 pub unsafe fn push_script(
     engine: &Engine,
     state: &mut ScriptState,
@@ -150,7 +203,7 @@ pub unsafe fn push_script(
         | ScriptOpcode::DefineArray
         | ScriptOpcode::PushArrayInt
         | ScriptOpcode::PopArrayInt
-        | ScriptOpcode::EndCoreOps => CORE_OPS.push(engine, state, code),
+        | ScriptOpcode::EndCoreOps => perform_core_operation(engine, state, code),
         // Server ops (1000-1999)
         ScriptOpcode::CoordX
         | ScriptOpcode::CoordY
@@ -187,7 +240,7 @@ pub unsafe fn push_script(
         | ScriptOpcode::ZonesCount
         | ScriptOpcode::LocsCount
         | ScriptOpcode::ObjsCount
-        | ScriptOpcode::MapMulti => ServerOps::new().push(engine, state, code),
+        | ScriptOpcode::MapMulti => perform_server_operation(engine, state, code),
         // Player ops (2000-2499)
         ScriptOpcode::AllowDesign
         | ScriptOpcode::Anim
@@ -311,7 +364,7 @@ pub unsafe fn push_script(
         | ScriptOpcode::PAnimProtect
         | ScriptOpcode::RunEnergy
         | ScriptOpcode::Weight
-        | ScriptOpcode::LastCoord => PlayerOps::new().push(engine, state, code),
+        | ScriptOpcode::LastCoord => perform_player_operation(engine, state, code),
         // Npc ops (2500-2999)
         ScriptOpcode::NpcAdd
         | ScriptOpcode::NpcAnim
@@ -382,7 +435,7 @@ pub unsafe fn push_script(
         | ScriptOpcode::ObjParam
         | ScriptOpcode::ObjTakeItem
         | ScriptOpcode::ObjType
-        | ScriptOpcode::ObjFind => ObjOps::new().push(engine, state, code),
+        | ScriptOpcode::ObjFind => perform_obj_operation(engine, state, code),
         // Npc config ops (4000-4099)
         ScriptOpcode::NcCategory
         | ScriptOpcode::NcDebugname
@@ -466,7 +519,7 @@ pub unsafe fn push_script(
         | ScriptOpcode::StringLength
         | ScriptOpcode::SubString
         | ScriptOpcode::StringIndexOfChar
-        | ScriptOpcode::StringIndexOfString => StringOps::new().push(state, code),
+        | ScriptOpcode::StringIndexOfString => perform_string_operation(state, code),
         // Number ops (4600-4699)
         ScriptOpcode::Add
         | ScriptOpcode::Sub
@@ -496,7 +549,7 @@ pub unsafe fn push_script(
         | ScriptOpcode::SinDeg
         | ScriptOpcode::CosDeg
         | ScriptOpcode::Atan2Deg
-        | ScriptOpcode::Abs => MATH_OPS.push(state, code, &**addr_of!(TRIG), &**addr_of!(BITS)),
+        | ScriptOpcode::Abs => perform_math_operation(state, code),
         // DB ops (7500-7599)
         ScriptOpcode::DbFindWithCount
         | ScriptOpcode::DbFindNext
@@ -523,6 +576,6 @@ pub unsafe fn push_script(
         | ScriptOpcode::MapLastClientOut
         | ScriptOpcode::MapLastCleanup
         | ScriptOpcode::MapLastBandwidthIn
-        | ScriptOpcode::MapLastBandwidthOut => DebugOps::new().push(engine, state, code),
+        | ScriptOpcode::MapLastBandwidthOut => perform_debug_operation(engine, state, code),
     }
 }

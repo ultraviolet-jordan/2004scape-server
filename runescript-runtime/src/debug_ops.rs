@@ -1,44 +1,34 @@
 use crate::script::{ScriptOpcode, ScriptState};
 use crate::Engine;
 
-pub struct DebugOps;
+#[inline(always)]
+#[rustfmt::skip]
+pub fn perform_debug_operation(
+    engine: &Engine,
+    state: &mut ScriptState,
+    code: ScriptOpcode,
+) -> Result<(), String> {
+    return match code {
+        ScriptOpcode::Error => Err(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::MapProduction => map_production(engine, state),
+        ScriptOpcode::MapLastClock => Err(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::MapLastWorld => Err(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::MapLastClientIn => Err(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::MapLastNpc => Err(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::MapLastPlayer => Err(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::MapLastLogout => Err(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::MapLastLogin => Err(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::MapLastZone => Err(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::MapLastClientOut => Err(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::MapLastCleanup => Err(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::MapLastBandwidthIn => Err(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::MapLastBandwidthOut => Err(format!("Unimplemented! {:?}", code)),
+        _ => Err(format!("Unrecognised debug ops code: {:?}", code)),
+    };
+}
 
-impl DebugOps {
-    #[inline(always)]
-    pub fn new() -> DebugOps {
-        return DebugOps;
-    }
-
-    #[inline(always)]
-    #[rustfmt::skip]
-    pub fn push(
-        &self,
-        engine: &Engine,
-        state: &mut ScriptState,
-        code: ScriptOpcode,
-    ) -> Result<(), String> {
-        return match code {
-            ScriptOpcode::Error => Err(String::from("Unimplemented!")),
-            ScriptOpcode::MapProduction => self.map_production(engine, state),
-            ScriptOpcode::MapLastClock => Err(String::from("Unimplemented!")),
-            ScriptOpcode::MapLastWorld => Err(String::from("Unimplemented!")),
-            ScriptOpcode::MapLastClientIn => Err(String::from("Unimplemented!")),
-            ScriptOpcode::MapLastNpc => Err(String::from("Unimplemented!")),
-            ScriptOpcode::MapLastPlayer => Err(String::from("Unimplemented!")),
-            ScriptOpcode::MapLastLogout => Err(String::from("Unimplemented!")),
-            ScriptOpcode::MapLastLogin => Err(String::from("Unimplemented!")),
-            ScriptOpcode::MapLastZone => Err(String::from("Unimplemented!")),
-            ScriptOpcode::MapLastClientOut => Err(String::from("Unimplemented!")),
-            ScriptOpcode::MapLastCleanup => Err(String::from("Unimplemented!")),
-            ScriptOpcode::MapLastBandwidthIn => Err(String::from("Unimplemented!")),
-            ScriptOpcode::MapLastBandwidthOut => Err(String::from("Unimplemented!")),
-            _ => Err(format!("Unrecognised debug ops code: {:?}", code)),
-        };
-    }
-
-    #[inline(always)]
-    fn map_production(&self, engine: &Engine, state: &mut ScriptState) -> Result<(), String> {
-        state.push_int(engine.map_production() as i32);
-        return Ok(());
-    }
+#[inline(always)]
+fn map_production(engine: &Engine, state: &mut ScriptState) -> Result<(), String> {
+    state.push_int(engine.map_production() as i32);
+    return Ok(());
 }
