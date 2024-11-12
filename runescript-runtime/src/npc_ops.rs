@@ -7,7 +7,7 @@ extern "C" {
 
     // ---- properties
 
-    #[wasm_bindgen(method, getter = nid)]
+    #[wasm_bindgen(method, getter = uid)]
     pub fn uid(this: &Npc) -> i32;
 
     #[wasm_bindgen(method, setter = activeScript)]
