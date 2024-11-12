@@ -1,6 +1,5 @@
 import Linkable from '#jagex2/datastruct/Linkable.js';
-import { ScriptFile } from '../../../runescript-runtime/dist/runescript-runtime.js';
-import ScriptState from '#lostcity/engine/script/ScriptState.js';
+import { ScriptFile, ScriptState } from '../../../runescript-runtime/dist/runescript-runtime.js';
 
 export enum NpcQueueType {
     NORMAL

@@ -35,16 +35,16 @@ import VarPlayerType from '#lostcity/cache/config/VarPlayerType.js';
 import VarSharedType from '#lostcity/cache/config/VarSharedType.js';
 import WordEnc from '#lostcity/cache/wordenc/WordEnc.js';
 
+import Engine from '#lostcity/engine/Engine.js';
 import { CoordGrid } from '#lostcity/engine/CoordGrid.js';
-import GameMap, {changeLocCollision, changeNpcCollision, changePlayerCollision} from '#lostcity/engine/GameMap.js';
+import GameMap, { changeLocCollision, changeNpcCollision, changePlayerCollision } from '#lostcity/engine/GameMap.js';
 import { Inventory } from '#lostcity/engine/Inventory.js';
 import Login from '#lostcity/engine/Login.js';
 import WorldStat from '#lostcity/engine/WorldStat.js';
 
-import ScriptPointer from '#lostcity/engine/script/ScriptPointer.js';
 import ScriptProvider from '#lostcity/engine/script/ScriptProvider.js';
 import ScriptRunner from '#lostcity/engine/script/ScriptRunner.js';
-import ScriptState from '#lostcity/engine/script/ScriptState.js';
+import { ScriptExecutionState, ScriptFile, ScriptPointer, ScriptState } from '../../../runescript-runtime/dist/runescript-runtime.js';
 import ServerTriggerType from '#lostcity/engine/script/ServerTriggerType.js';
 import Zone from '#lostcity/engine/zone/Zone.js';
 import PlayerRenderer from '#lostcity/engine/renderer/PlayerRenderer.js';
@@ -56,10 +56,9 @@ import BlockWalk from '#lostcity/entity/BlockWalk.js';
 import Loc from '#lostcity/entity/Loc.js';
 import Npc from '#lostcity/entity/Npc.js';
 import Obj from '#lostcity/entity/Obj.js';
-import Player from '#lostcity/entity/Player.js';
+import Player, { isNetworkPlayer } from '#lostcity/entity/Player.js';
 import EntityLifeCycle from '#lostcity/entity/EntityLifeCycle.js';
 import { NpcList, PlayerList } from '#lostcity/entity/EntityList.js';
-import { isNetworkPlayer } from '#lostcity/entity/NetworkPlayer.js';
 import { EntityQueueState } from '#lostcity/entity/EntityQueueRequest.js';
 import { PlayerTimerType } from '#lostcity/entity/EntityTimer.js';
 
@@ -79,8 +78,9 @@ import { FriendsServerOpcodes } from '#lostcity/server/FriendServer.js';
 import Environment from '#lostcity/util/Environment.js';
 import { printDebug, printError, printInfo } from '#lostcity/util/Logger.js';
 import { createWorker } from '#lostcity/util/WorkerFactory.js';
+import { check, CoordValid, DurationValid, ObjStackValid, ObjTypeValid } from '#lostcity/engine/script/ScriptValidators.js';
 
-class World {
+class World implements Engine {
     private friendThread: Worker | NodeWorker = createWorker(Environment.STANDALONE_BUNDLE ? 'FriendThread.js' : './src/lostcity/server/FriendThread.ts');
     private devThread: Worker | NodeWorker | null = null;
 
@@ -159,6 +159,64 @@ class World {
         }
     }
 
+    // ---- implementations
+
+    getPlayerByUid(uid: number): Player | null {
+        const pid = uid & 0x7ff;
+        const name37 = (uid >> 11) & 0x1fffff;
+
+        const player = this.getPlayer(pid);
+        if (!player) {
+            return null;
+        }
+
+        if (Number(player.username37 & 0x1fffffn) !== name37) {
+            return null;
+        }
+
+        return player;
+    }
+
+    getScript(script: number): ScriptFile | undefined {
+        // console.log(`script: $${script};`);
+        // console.log(ScriptProvider.get(script));
+        return ScriptProvider.get(script)?._clone();
+    }
+
+    isProduction(): boolean {
+        return Environment.NODE_PRODUCTION;
+    }
+
+    objAddAll(coord: number, id: number, count: number, duration: number): Obj | null {
+        const objType: ObjType = check(id, ObjTypeValid);
+        check(duration, DurationValid);
+        const position: CoordGrid = check(coord, CoordValid);
+        check(count, ObjStackValid);
+
+        if (objType.dummyitem !== 0) {
+            throw new Error(`attempted to add dummy item: ${objType.debugname}`);
+        }
+
+        if (objType.members && !Environment.NODE_MEMBERS) {
+            return null;
+        }
+
+        if (!objType.stackable || count === 1) {
+            let obj: Obj | null = null;
+            for (let i = 0; i < count; i++) {
+                obj = new Obj(position.level, position.x, position.z, EntityLifeCycle.DESPAWN, id, 1);
+                this.addObj(obj, -1, duration);
+            }
+            return obj;
+        }
+
+        const obj: Obj = new Obj(position.level, position.x, position.z, EntityLifeCycle.DESPAWN, id, count);
+        this.addObj(obj, -1, duration);
+        return obj;
+    }
+
+    // ---- member functions
+
     rebuild() {
         if (this.devThread) {
             this.devThread.postMessage({
@@ -167,7 +225,7 @@ class World {
         }
     }
 
-    onFriendsMessage({ opcode, data }: { opcode: FriendsServerOpcodes, data: any }) {
+    onFriendsMessage({ opcode, data }: { opcode: FriendsServerOpcodes; data: any }) {
         try {
             if (opcode === FriendsServerOpcodes.UPDATE_FRIENDLIST) {
                 const username37 = BigInt(data.username37);
@@ -292,33 +350,35 @@ class World {
     }
 
     async loadAsync(): Promise<void> {
-        const count = (await Promise.all([
-            NpcType.loadAsync('data/pack'),
-            ObjType.loadAsync('data/pack'),
-            LocType.loadAsync('data/pack'),
-            FontType.loadAsync('data/pack'),
-            WordEnc.loadAsync('data/pack'),
-            VarPlayerType.loadAsync('data/pack'),
-            ParamType.loadAsync('data/pack'),
-            IdkType.loadAsync('data/pack'),
-            SeqFrame.loadAsync('data/pack'),
-            SeqType.loadAsync('data/pack'),
-            SpotanimType.loadAsync('data/pack'),
-            CategoryType.loadAsync('data/pack'),
-            EnumType.loadAsync('data/pack'),
-            StructType.loadAsync('data/pack'),
-            InvType.loadAsync('data/pack'),
-            MesanimType.loadAsync('data/pack'),
-            DbTableType.loadAsync('data/pack'),
-            DbRowType.loadAsync('data/pack'),
-            HuntType.loadAsync('data/pack'),
-            VarNpcType.loadAsync('data/pack'),
-            VarSharedType.loadAsync('data/pack'),
-            Component.loadAsync('data/pack'),
-            makeCrcsAsync(),
-            preloadClientAsync(),
-            ScriptProvider.loadAsync('data/pack'),
-        ])).at(-1);
+        const count = (
+            await Promise.all([
+                NpcType.loadAsync('data/pack'),
+                ObjType.loadAsync('data/pack'),
+                LocType.loadAsync('data/pack'),
+                FontType.loadAsync('data/pack'),
+                WordEnc.loadAsync('data/pack'),
+                VarPlayerType.loadAsync('data/pack'),
+                ParamType.loadAsync('data/pack'),
+                IdkType.loadAsync('data/pack'),
+                SeqFrame.loadAsync('data/pack'),
+                SeqType.loadAsync('data/pack'),
+                SpotanimType.loadAsync('data/pack'),
+                CategoryType.loadAsync('data/pack'),
+                EnumType.loadAsync('data/pack'),
+                StructType.loadAsync('data/pack'),
+                InvType.loadAsync('data/pack'),
+                MesanimType.loadAsync('data/pack'),
+                DbTableType.loadAsync('data/pack'),
+                DbRowType.loadAsync('data/pack'),
+                HuntType.loadAsync('data/pack'),
+                VarNpcType.loadAsync('data/pack'),
+                VarSharedType.loadAsync('data/pack'),
+                Component.loadAsync('data/pack'),
+                makeCrcsAsync(),
+                preloadClientAsync(),
+                ScriptProvider.loadAsync('data/pack')
+            ])
+        ).at(-1);
 
         this.invs.clear();
         for (let i = 0; i < InvType.count; i++) {
@@ -403,6 +463,8 @@ class World {
                 printInfo(kleur.green().bold('World ready') + kleur.white().bold(': http://localhost:' + Environment.WEB_PORT));
             }
         }
+
+        console.log(ScriptProvider.get(21));
 
         if (startCycle) {
             await this.cycle();
@@ -556,8 +618,12 @@ class World {
             }
 
             if (Environment.NODE_DEBUG_PROFILER) {
-                printDebug(`| [tick ${this.currentTick}; ${this.cycleStats[WorldStat.CYCLE]}/${this.tickRate}ms] | ${this.getTotalPlayers()} players | ${this.getTotalNpcs()} npcs | ${this.gameMap.getTotalZones()} zones | ${this.gameMap.getTotalLocs()} locs | ${this.gameMap.getTotalObjs()} objs |`);
-                printDebug(`| ${this.cycleStats[WorldStat.WORLD]}ms world | ${this.cycleStats[WorldStat.CLIENT_IN]}ms client in | ${this.cycleStats[WorldStat.NPC]}ms npcs | ${this.cycleStats[WorldStat.PLAYER]}ms players | ${this.cycleStats[WorldStat.LOGOUT]}ms logout | ${this.cycleStats[WorldStat.LOGIN]}ms login | ${this.cycleStats[WorldStat.ZONE]}ms zones | ${this.cycleStats[WorldStat.CLIENT_OUT]}ms client out | ${this.cycleStats[WorldStat.CLEANUP]}ms cleanup |`);
+                printDebug(
+                    `| [tick ${this.currentTick}; ${this.cycleStats[WorldStat.CYCLE]}/${this.tickRate}ms] | ${this.getTotalPlayers()} players | ${this.getTotalNpcs()} npcs | ${this.gameMap.getTotalZones()} zones | ${this.gameMap.getTotalLocs()} locs | ${this.gameMap.getTotalObjs()} objs |`
+                );
+                printDebug(
+                    `| ${this.cycleStats[WorldStat.WORLD]}ms world | ${this.cycleStats[WorldStat.CLIENT_IN]}ms client in | ${this.cycleStats[WorldStat.NPC]}ms npcs | ${this.cycleStats[WorldStat.PLAYER]}ms players | ${this.cycleStats[WorldStat.LOGOUT]}ms logout | ${this.cycleStats[WorldStat.LOGIN]}ms login | ${this.cycleStats[WorldStat.ZONE]}ms zones | ${this.cycleStats[WorldStat.CLIENT_OUT]}ms client out | ${this.cycleStats[WorldStat.CLEANUP]}ms cleanup |`
+                );
                 printDebug('----');
             }
         } catch (err) {
@@ -596,18 +662,18 @@ class World {
 
             const script: ScriptState = request.script;
             try {
-                const state: number = ScriptRunner.execute(script);
+                const state: ScriptExecutionState = ScriptRunner.execute(script);
 
                 // remove from queue no matter what, re-adds if necessary
                 request.unlink();
 
-                if (state === ScriptState.SUSPENDED) {
+                if (state === ScriptExecutionState.Suspended) {
                     // suspend to player (probably not needed)
-                    script.activePlayer.activeScript = script;
-                } else if (state === ScriptState.NPC_SUSPENDED) {
+                    script.activePlayerScript = script;
+                } else if (state === ScriptExecutionState.NpcSuspended) {
                     // suspend to npc (probably not needed)
-                    script.activeNpc.activeScript = script;
-                } else if (state === ScriptState.WORLD_SUSPENDED) {
+                    script.activeNpcScript = script;
+                } else if (state === ScriptExecutionState.WorldSuspended) {
                     // suspend to world again
                     this.enqueueScript(script, script.popInt());
                 }
@@ -677,39 +743,39 @@ class World {
                     player.delay--;
                 }
 
-                if (player.activeScript && player.activeScript.execution === ScriptState.SUSPENDED && !player.delayed()) {
+                if (player.activeScript && player.activeScript.execution === ScriptExecutionState.Suspended && !player.delayed()) {
                     player.executeScript(player.activeScript, true, true);
                 }
 
                 if (isNetworkPlayer(player) && player.decodeIn()) {
-                    const followingPlayer = (player.targetOp === ServerTriggerType.APPLAYER3 || player.targetOp === ServerTriggerType.OPPLAYER3);
+                    const followingPlayer = player.targetOp === ServerTriggerType.APPLAYER3 || player.targetOp === ServerTriggerType.OPPLAYER3;
                     if (player.userPath.length > 0 || player.opcalled) {
                         if (player.delayed()) {
                             player.unsetMapFlag();
                             continue;
                         }
-        
+
                         if ((!player.target || player.target instanceof Loc || player.target instanceof Obj) && player.faceEntity !== -1) {
                             player.faceEntity = -1;
                             player.masks |= InfoProt.PLAYER_FACE_ENTITY.id;
                         }
-        
+
                         if (player.busy() || !player.opcalled) {
                             player.moveClickRequest = true;
                         }
-        
+
                         if (!followingPlayer && player.opcalled && (player.userPath.length === 0 || !Environment.NODE_CLIENT_ROUTEFINDER)) {
                             player.pathToTarget();
                             continue;
                         }
-        
+
                         player.pathToMoveClick(player.userPath, !Environment.NODE_CLIENT_ROUTEFINDER);
-    
+
                         if (!player.opcalled && player.hasWaypoints()) {
                             player.processWalktrigger();
                         }
                     }
-        
+
                     if (player.target instanceof Player && followingPlayer) {
                         if (CoordGrid.distanceToSW(player, player.target) <= 25) {
                             player.pathToPathingTarget();
@@ -754,7 +820,7 @@ class World {
                 }
 
                 // - resume suspended script
-                if (npc.activeScript && npc.activeScript.execution === ScriptState.NPC_SUSPENDED) {
+                if (npc.activeScript && npc.activeScript.execution === ScriptExecutionState.NpcSuspended) {
                     npc.executeScript(npc.activeScript);
                 }
 
@@ -1346,7 +1412,7 @@ class World {
         zone.revealObj(obj, obj.receiverId);
         // objs next life cycle always starts from the last time they changed + the inputted duration.
         // accounting for reveal time here.
-        const nextLifecycle: number = (change !== -1 ? (Obj.REVEAL - (this.currentTick - change)) : 0) + this.currentTick + duration;
+        const nextLifecycle: number = (change !== -1 ? Obj.REVEAL - (this.currentTick - change) : 0) + this.currentTick + duration;
         obj.setLifeCycle(nextLifecycle);
         this.trackZone(nextLifecycle, zone);
         this.trackZone(this.currentTick, zone);
@@ -1433,7 +1499,7 @@ class World {
         this.friendThread.postMessage({
             type: 'player_friendslist_add',
             username: player.username,
-            target: targetUsername37,
+            target: targetUsername37
         });
     }
 
@@ -1442,7 +1508,7 @@ class World {
         this.friendThread.postMessage({
             type: 'player_friendslist_remove',
             username: player.username,
-            target: targetUsername37,
+            target: targetUsername37
         });
     }
 
@@ -1451,7 +1517,7 @@ class World {
         this.friendThread.postMessage({
             type: 'player_ignorelist_add',
             username: player.username,
-            target: targetUsername37,
+            target: targetUsername37
         });
     }
 
@@ -1460,7 +1526,7 @@ class World {
         this.friendThread.postMessage({
             type: 'player_ignorelist_remove',
             username: player.username,
-            target: targetUsername37,
+            target: targetUsername37
         });
     }
 
@@ -1470,7 +1536,7 @@ class World {
         this.friendThread.postMessage({
             type: 'player_login',
             username: player.username,
-            chatModePrivate: player.chatModes.privateChat,
+            chatModePrivate: player.chatModes.privateChat
         });
     }
 
@@ -1478,7 +1544,7 @@ class World {
         this.friendThread.postMessage({
             type: 'player_chat_setmode',
             username: player.username,
-            chatModePrivate: player.chatModes.privateChat,
+            chatModePrivate: player.chatModes.privateChat
         });
     }
 
@@ -1501,7 +1567,7 @@ class World {
 
         this.friendThread.postMessage({
             type: 'player_logout',
-            username: player.username,
+            username: player.username
         });
     }
 
@@ -1512,7 +1578,7 @@ class World {
             type: 'private_message',
             username: player.username,
             staffLvl: player.staffModLevel,
-            pmId: (Environment.NODE_ID << 24) + (Math.random() * 0xFF << 16) + (this.pmCount++),
+            pmId: (Environment.NODE_ID << 24) + ((Math.random() * 0xff) << 16) + this.pmCount++,
             target: targetUsername37,
             message: message
         });
@@ -1520,22 +1586,6 @@ class World {
 
     getPlayer(pid: number): Player | undefined {
         return this.players.get(pid);
-    }
-
-    getPlayerByUid(uid: number): Player | null {
-        const pid = uid & 0x7ff;
-        const name37 = (uid >> 11) & 0x1fffff;
-
-        const player = this.getPlayer(pid);
-        if (!player) {
-            return null;
-        }
-
-        if (Number(player.username37 & 0x1fffffn) !== name37) {
-            return null;
-        }
-
-        return player;
     }
 
     getPlayerByUsername(username: string): Player | undefined {
@@ -1593,12 +1643,11 @@ class World {
         return this.players.next();
     }
 
-    scaleByPlayerCount(rate : number): number {
+    scaleByPlayerCount(rate: number): number {
         // not sure if it caps at 2k player count or not
         const playerCount = Math.min(this.getTotalPlayers(), 2000);
         return (((4000 - playerCount) * rate) / 4000) | 0; // assuming scale works the same way as the runescript one
     }
-
 }
 
 export default new World();

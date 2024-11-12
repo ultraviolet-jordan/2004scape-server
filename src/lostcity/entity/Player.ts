@@ -1,7 +1,7 @@
 import 'dotenv/config';
 
 import Packet from '#jagex2/io/Packet.js';
-import {fromBase37, toDisplayName} from '#jagex2/jstring/JString.js';
+import { fromBase37, toDisplayName } from '#jagex2/jstring/JString.js';
 
 import FontType from '#lostcity/cache/config/FontType.js';
 import Component from '#lostcity/cache/config/Component.js';
@@ -14,37 +14,35 @@ import SeqType from '#lostcity/cache/config/SeqType.js';
 import VarPlayerType from '#lostcity/cache/config/VarPlayerType.js';
 
 import BlockWalk from '#lostcity/entity/BlockWalk.js';
-import {EntityTimer, PlayerTimerType} from '#lostcity/entity/EntityTimer.js';
-import {EntityQueueRequest, PlayerQueueType, QueueType, ScriptArgument} from '#lostcity/entity/EntityQueueRequest.js';
+import { EntityTimer, PlayerTimerType } from '#lostcity/entity/EntityTimer.js';
+import { EntityQueueRequest, PlayerQueueType, QueueType, ScriptArgument } from '#lostcity/entity/EntityQueueRequest.js';
 import Loc from '#lostcity/entity/Loc.js';
 import Npc from '#lostcity/entity/Npc.js';
 import MoveRestrict from '#lostcity/entity/MoveRestrict.js';
 import Obj from '#lostcity/entity/Obj.js';
 import PathingEntity from '#lostcity/entity/PathingEntity.js';
-import {CoordGrid} from '#lostcity/engine/CoordGrid.js';
+import { CoordGrid } from '#lostcity/engine/CoordGrid.js';
 import CameraInfo from '#lostcity/entity/CameraInfo.js';
 import MoveSpeed from '#lostcity/entity/MoveSpeed.js';
 import EntityLifeCycle from '#lostcity/entity/EntityLifeCycle.js';
 import PlayerStat from '#lostcity/entity/PlayerStat.js';
 import MoveStrategy from '#lostcity/entity/MoveStrategy.js';
 
-import {Inventory} from '#lostcity/engine/Inventory.js';
+import { Inventory } from '#lostcity/engine/Inventory.js';
 import World from '#lostcity/engine/World.js';
 
-import { ScriptFile } from '../../../runescript-runtime/dist/runescript-runtime.js';
+import { ScriptExecutionState, ScriptFile, ScriptPointer, ScriptState } from '../../../runescript-runtime/dist/runescript-runtime.js';
 import ScriptProvider from '#lostcity/engine/script/ScriptProvider.js';
 import ScriptRunner from '#lostcity/engine/script/ScriptRunner.js';
-import ScriptState from '#lostcity/engine/script/ScriptState.js';
 import ServerTriggerType from '#lostcity/engine/script/ServerTriggerType.js';
-import ScriptPointer from '#lostcity/engine/script/ScriptPointer.js';
 
 import Environment from '#lostcity/util/Environment.js';
 
 import LinkList from '#jagex2/datastruct/LinkList.js';
 import DoublyLinkList from '#jagex2/datastruct/DoublyLinkList.js';
 
-import {CollisionFlag} from '@2004scape/rsmod-pathfinder';
-import {PRELOADED, PRELOADED_CRC} from '#lostcity/server/PreloadedPacks.js';
+import { CollisionFlag } from '@2004scape/rsmod-pathfinder';
+import { PRELOADED, PRELOADED_CRC } from '#lostcity/server/PreloadedPacks.js';
 import OutgoingMessage from '#lostcity/network/outgoing/OutgoingMessage.js';
 import IfClose from '#lostcity/network/outgoing/model/IfClose.js';
 import UpdateUid192 from '#lostcity/network/outgoing/model/UpdateUid192.js';
@@ -67,8 +65,12 @@ import ParamType from '#lostcity/cache/config/ParamType.js';
 import BuildArea from '#lostcity/entity/BuildArea.js';
 import ChatFilterSettings from '#lostcity/network/outgoing/model/ChatFilterSettings.js';
 import { ChatModePrivate, ChatModePublic, ChatModeTradeDuel } from '#lostcity/util/ChatModes.js';
-import { isNetworkPlayer } from '#lostcity/entity/NetworkPlayer.js';
+// import { isNetworkPlayer } from '#lostcity/entity/NetworkPlayer.js';
 import InfoProt from '#lostcity/network/225/outgoing/prot/InfoProt.js';
+import MessageEncoder from '#lostcity/network/outgoing/codec/MessageEncoder.js';
+import ServerProtRepository from '#lostcity/network/225/outgoing/prot/ServerProtRepository.js';
+import ServerProt from '#lostcity/network/225/outgoing/prot/ServerProt.js';
+import { NetworkPlayer } from '#lostcity/entity/NetworkPlayer.js';
 
 const levelExperience = new Int32Array(99);
 
@@ -92,10 +94,6 @@ export function getLevelByExp(exp: number) {
 
 export function getExpByLevel(level: number) {
     return levelExperience[level - 2];
-}
-
-abstract class ScriptPlayer {
-    test: number = 0;
 }
 
 export default class Player extends PathingEntity {
@@ -201,12 +199,7 @@ export default class Player extends PathingEntity {
         }
         sav.p2(this.lastAfkZone);
 
-        const chatModePacked
-            = (
-                (this.chatModes.publicChat << 4)
-                | (this.chatModes.privateChat << 2)
-                | this.chatModes.tradeDuel
-            );
+        const chatModePacked = (this.chatModes.publicChat << 4) | (this.chatModes.privateChat << 2) | this.chatModes.tradeDuel;
         sav.p1(chatModePacked);
 
         sav.p4(Packet.getcrc(sav.data, 0, sav.pos));
@@ -248,7 +241,7 @@ export default class Player extends PathingEntity {
     } = {
             publicChat: ChatModePublic.ON,
             privateChat: ChatModePrivate.ON,
-            tradeDuel: ChatModeTradeDuel.ON,
+            tradeDuel: ChatModeTradeDuel.ON
         };
 
     // runtime variables
@@ -418,11 +411,7 @@ export default class Player extends PathingEntity {
             }
         }
 
-        this.write(
-            new ChatFilterSettings(
-                this.chatModes.publicChat,
-                this.chatModes.privateChat,
-                this.chatModes.tradeDuel));
+        this.write(new ChatFilterSettings(this.chatModes.publicChat, this.chatModes.privateChat, this.chatModes.tradeDuel));
 
         const loginTrigger = ScriptProvider.getByTriggerSpecific(ServerTriggerType.LOGIN, -1, -1);
         if (loginTrigger) {
@@ -451,8 +440,8 @@ export default class Player extends PathingEntity {
     triggerZone(level: number, x: number, z: number) {
         const mx = x >> 6;
         const mz = z >> 6;
-        const lx = (x & 0x3f) >> 3 << 3;
-        const lz = (z & 0x3f) >> 3 << 3;
+        const lx = ((x & 0x3f) >> 3) << 3;
+        const lz = ((z & 0x3f) >> 3) << 3;
         const trigger = ScriptProvider.getByName(`[zone,${level}_${mx}_${mz}_${lx}_${lz}]`);
         if (trigger) {
             this.enqueueScript(trigger, PlayerQueueType.ENGINE);
@@ -462,8 +451,8 @@ export default class Player extends PathingEntity {
     triggerZoneExit(level: number, x: number, z: number) {
         const mx = x >> 6;
         const mz = z >> 6;
-        const lx = (x & 0x3f) >> 3 << 3;
-        const lz = (z & 0x3f) >> 3 << 3;
+        const lx = ((x & 0x3f) >> 3) << 3;
+        const lz = ((z & 0x3f) >> 3) << 3;
         const trigger = ScriptProvider.getByName(`[zoneexit,${level}_${mx}_${mz}_${lx}_${lz}]`);
         if (trigger) {
             this.enqueueScript(trigger, PlayerQueueType.ENGINE);
@@ -582,7 +571,7 @@ export default class Player extends PathingEntity {
 
     private recoverEnergy(moved: boolean): void {
         if (!this.delayed() && (!moved || this.moveSpeed !== MoveSpeed.RUN) && this.runenergy < 10000) {
-            const recovered = (this.baseLevels[PlayerStat.AGILITY] / 9 | 0) + 8;
+            const recovered = ((this.baseLevels[PlayerStat.AGILITY] / 9) | 0) + 8;
             this.runenergy = Math.min(this.runenergy + recovered, 10000);
         }
     }
@@ -839,12 +828,13 @@ export default class Player extends PathingEntity {
 
         return ScriptProvider.getByTrigger(this.targetOp, typeId, categoryId) ?? null;
     }
+
     // https://youtu.be/_NmFftkMm0I?si=xSgb8GCydgUXUayR&t=79
     // to allow p_walk (sets player destination tile) during walktriggers
-    // we process walktriggers from regular movement in client input, 
+    // we process walktriggers from regular movement in client input,
     // and for each interaction.
     processWalktrigger() {
-        if (this.walktrigger !== -1 && (!this.protect && !this.delayed())) {
+        if (this.walktrigger !== -1 && !this.protect && !this.delayed()) {
             const trigger = ScriptProvider.get(this.walktrigger);
             this.walktrigger = -1;
             if (trigger) {
@@ -900,8 +890,8 @@ export default class Player extends PathingEntity {
             const walktrigger: number = this.walktrigger;
             if (this.hasWaypoints()) {
                 this.processWalktrigger();
-            }    
-            const moved: boolean = this.updateMovement(false);    
+            }
+            const moved: boolean = this.updateMovement(false);
             if (!moved && walktrigger !== -1 && this.target instanceof Player && (this.x !== this.target.lastStepX || this.z !== this.target.lastStepZ)) {
                 this.clearInteraction();
                 this.unsetMapFlag();
@@ -919,11 +909,10 @@ export default class Player extends PathingEntity {
         if (opTrigger && this.target instanceof PathingEntity && this.inOperableDistance(this.target)) {
             const target = this.target;
             this.target = null;
-            this.clearWaypoints(); 
+            this.clearWaypoints();
 
             this.executeScript(ScriptRunner.init(opTrigger, this, target), true);
             this.interacted = true;
-
         } else if (apTrigger && this.inApproachDistance(this.apRange, this.target)) {
             const target = this.target;
             this.target = null;
@@ -939,17 +928,17 @@ export default class Player extends PathingEntity {
                 this.waypointIndex = waypointIndex;
                 this.target = target;
             } else {
-                if (this.target === target) { // if p_opnpc was called
-                    this.clearWaypoints(); 
+                if (this.target === target) {
+                    // if p_opnpc was called
+                    this.clearWaypoints();
                 }
                 this.interacted = true;
             }
-
         } else if (this.target instanceof PathingEntity && this.inOperableDistance(this.target)) {
             if (Environment.NODE_DEBUG && !opTrigger && !apTrigger) {
                 let debugname = '_';
                 if (this.target instanceof Npc) {
-                    if (this.targetSubject.com !== -1 && this.targetOp === ServerTriggerType.APNPCT || this.targetOp === ServerTriggerType.OPNPCT) {
+                    if ((this.targetSubject.com !== -1 && this.targetOp === ServerTriggerType.APNPCT) || this.targetOp === ServerTriggerType.OPNPCT) {
                         debugname = Component.get(this.targetSubject.com)?.comName ?? this.targetSubject.toString();
                     } else {
                         debugname = NpcType.get(this.target.type)?.debugname ?? this.target.type.toString();
@@ -958,7 +947,7 @@ export default class Player extends PathingEntity {
                     debugname = LocType.get(this.target.type)?.debugname ?? this.target.type.toString();
                 } else if (this.target instanceof Obj) {
                     debugname = ObjType.get(this.target.type)?.debugname ?? this.target.type.toString();
-                } else if (this.targetSubject.com !== -1 && this.targetOp === ServerTriggerType.APNPCT || this.targetOp === ServerTriggerType.APPLAYERT || this.targetOp === ServerTriggerType.APLOCT || this.targetOp === ServerTriggerType.APOBJT) {
+                } else if ((this.targetSubject.com !== -1 && this.targetOp === ServerTriggerType.APNPCT) || this.targetOp === ServerTriggerType.APPLAYERT || this.targetOp === ServerTriggerType.APLOCT || this.targetOp === ServerTriggerType.APOBJT) {
                     debugname = Component.get(this.targetSubject.com)?.comName ?? this.targetSubject.toString();
                 } else if (this.targetSubject.type !== -1) {
                     debugname = ObjType.get(this.targetSubject.type)?.debugname ?? this.targetSubject.toString();
@@ -980,14 +969,12 @@ export default class Player extends PathingEntity {
             this.processWalktrigger();
             moved = this.updateMovement();
             if (opTrigger && (this.target instanceof PathingEntity || !moved) && this.inOperableDistance(this.target)) {
-
                 const target = this.target;
                 this.target = null;
-                this.clearWaypoints(); 
+                this.clearWaypoints();
 
                 this.executeScript(ScriptRunner.init(opTrigger, this, target), true);
                 this.interacted = true;
-
             } else if (apTrigger && this.inApproachDistance(this.apRange, this.target)) {
                 this.apRangeCalled = false;
 
@@ -1005,12 +992,12 @@ export default class Player extends PathingEntity {
                     this.waypoints = wayPoints;
                     this.waypointIndex = waypointIndex;
                 } else {
-                    if (this.target === target) { // if p_opnpc was called
+                    if (this.target === target) {
+                        // if p_opnpc was called
                         this.clearWaypoints();
                     }
                     this.interacted = true;
                 }
-
             } else if ((this.target instanceof PathingEntity || !moved) && this.inOperableDistance(this.target)) {
                 if (!Environment.NODE_PRODUCTION && !opTrigger && !apTrigger) {
                     let debugname = '_';
@@ -1020,7 +1007,12 @@ export default class Player extends PathingEntity {
                         debugname = LocType.get(this.target.type)?.debugname ?? this.target.type.toString();
                     } else if (this.target instanceof Obj) {
                         debugname = ObjType.get(this.target.type)?.debugname ?? this.target.type.toString();
-                    } else if (this.targetSubject.com !== -1 && this.targetOp === ServerTriggerType.APNPCT || this.targetOp === ServerTriggerType.APPLAYERT || this.targetOp === ServerTriggerType.APLOCT || this.targetOp === ServerTriggerType.APOBJT) {
+                    } else if (
+                        (this.targetSubject.com !== -1 && this.targetOp === ServerTriggerType.APNPCT) ||
+                        this.targetOp === ServerTriggerType.APPLAYERT ||
+                        this.targetOp === ServerTriggerType.APLOCT ||
+                        this.targetOp === ServerTriggerType.APOBJT
+                    ) {
                         debugname = Component.get(this.targetSubject.com)?.comName ?? this.targetSubject.toString();
                     } else if (this.targetSubject.type !== -1) {
                         debugname = ObjType.get(this.targetSubject.type)?.debugname ?? this.targetSubject.toString();
@@ -1044,7 +1036,7 @@ export default class Player extends PathingEntity {
         if (this.interacted && !this.apRangeCalled && this.target === null) {
             this.clearInteraction();
         }
-        
+
         if (!this.hasWaypoints()) {
             this.unsetMapFlag();
         }
@@ -1086,6 +1078,7 @@ export default class Player extends PathingEntity {
     }
 
     generateAppearance(inv: number) {
+        console.log('generateAppearance');
         const stream = Packet.alloc(0);
 
         stream.p1(this.gender);
@@ -1736,12 +1729,13 @@ export default class Player extends PathingEntity {
 
     // ----
 
-    runScript(script: ScriptState, protect: boolean = false, force: boolean = false) {
+    runScript(script: ScriptState, protect: boolean = false, force: boolean = false): ScriptExecutionState | number {
         // printDebug('Executing', script.script.info.scriptName);
 
         if (!force && protect && (this.protect || this.delayed())) {
             // can't get protected access, bye-bye
             // printDebug('No protected access:', script.script.info.scriptName, protect, this.protect);
+            script.free();
             return -1;
         }
 
@@ -1750,20 +1744,22 @@ export default class Player extends PathingEntity {
             this.protect = true;
         }
 
-        const state = ScriptRunner.execute(script);
+        const state: ScriptExecutionState = ScriptRunner.execute(script);
 
         if (protect) {
             this.protect = false;
         }
 
-        if (script.pointerGet(ScriptPointer.ProtectedActivePlayer) && script._activePlayer) {
-            script.pointerRemove(ScriptPointer.ProtectedActivePlayer);
-            script._activePlayer.protect = false;
-        }
+        if (state !== ScriptExecutionState.Finished && state !== ScriptExecutionState.Aborted) {
+            if (script.pointerGet(ScriptPointer.ProtectedActivePlayer) && script._activePlayer) {
+                script.pointerRemove(ScriptPointer.ProtectedActivePlayer);
+                script._activePlayer.protect = false;
+            }
 
-        if (script.pointerGet(ScriptPointer.ProtectedActivePlayer2) && script._activePlayer2) {
-            script.pointerRemove(ScriptPointer.ProtectedActivePlayer2);
-            script._activePlayer2.protect = false;
+            if (script.pointerGet(ScriptPointer.ProtectedActivePlayer2) && script._activePlayer2) {
+                script.pointerRemove(ScriptPointer.ProtectedActivePlayer2);
+                script._activePlayer2.protect = false;
+            }
         }
 
         return state;
@@ -1772,22 +1768,23 @@ export default class Player extends PathingEntity {
     executeScript(script: ScriptState, protect: boolean = false, force: boolean = false) {
         // printDebug('Executing', script.script.info.scriptName);
 
-        const state = this.runScript(script, protect, force);
+        const state: ScriptExecutionState | number = this.runScript(script, protect, force);
         if (state === -1) {
             // printDebug('Script did not run', script.script.info.scriptName, protect, this.protect);
             return;
         }
 
-        if (state !== ScriptState.FINISHED && state !== ScriptState.ABORTED) {
-            if (state === ScriptState.WORLD_SUSPENDED) {
+        if (state !== ScriptExecutionState.Finished && state !== ScriptExecutionState.Aborted) {
+            if (state === ScriptExecutionState.WorldSuspended) {
                 World.enqueueScript(script, script.popInt());
-            } else if (state === ScriptState.NPC_SUSPENDED) {
-                script.activeNpc.activeScript = script;
+            } else if (state === ScriptExecutionState.NpcSuspended) {
+                script.activeNpcScript = script;
             } else {
-                script.activePlayer.activeScript = script;
-                script.activePlayer.protect = protect; // preserve protected access when delayed
+                script.activePlayerScript = script;
+                script.activePlayerProtect = protect; // preserve protected access when delayed
             }
         } else if (script === this.activeScript) {
+            console.log('freed - player');
             this.activeScript = null;
 
             if ((this.modalState & 1) === 0) {
@@ -1854,4 +1851,28 @@ export default class Player extends PathingEntity {
     messageGame(msg: string) {
         this.write(new MessageGame(msg));
     }
+}
+
+export function isNetworkPlayer(player: Player): player is NetworkPlayer {
+    return (player as NetworkPlayer).client !== null && (player as NetworkPlayer).client !== undefined;
+}
+
+export function isBufferFull(player: Player): boolean {
+    if (!isNetworkPlayer(player)) {
+        return false;
+    }
+
+    let total = 0;
+
+    for (let message: OutgoingMessage | null = player.buffer.head(); message; message = player.buffer.next()) {
+        const encoder: MessageEncoder<OutgoingMessage> | undefined = ServerProtRepository.getEncoder(message);
+        if (!encoder) {
+            return true;
+        }
+
+        const prot: ServerProt = encoder.prot;
+        total += 1 + (prot.length === -1 ? 1 : prot.length === -2 ? 2 : 0) + encoder.test(message);
+    }
+
+    return total >= 5000;
 }

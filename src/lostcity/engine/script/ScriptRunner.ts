@@ -1,23 +1,4 @@
-import { ScriptFile } from '../../../../runescript-runtime/dist/runescript-runtime.js';
-import ScriptOpcode from '#lostcity/engine/script/ScriptOpcode.js';
-import ScriptPointer from '#lostcity/engine/script/ScriptPointer.js';
-import ScriptState from '#lostcity/engine/script/ScriptState.js';
-
-import CoreOps from '#lostcity/engine/script/handlers/CoreOps.js';
-import DbOps from '#lostcity/engine/script/handlers/DbOps.js';
-import DebugOps from '#lostcity/engine/script/handlers/DebugOps.js';
-import EnumOps from '#lostcity/engine/script/handlers/EnumOps.js';
-import InvOps from '#lostcity/engine/script/handlers/InvOps.js';
-import LocOps from '#lostcity/engine/script/handlers/LocOps.js';
-import LocConfigOps from '#lostcity/engine/script/handlers/LocConfigOps.js';
-import NpcOps from '#lostcity/engine/script/handlers/NpcOps.js';
-import NpcConfigOps from '#lostcity/engine/script/handlers/NpcConfigOps.js';
-import NumberOps from '#lostcity/engine/script/handlers/NumberOps.js';
-import ObjOps from '#lostcity/engine/script/handlers/ObjOps.js';
-import ObjConfigOps from '#lostcity/engine/script/handlers/ObjConfigOps.js';
-import PlayerOps from '#lostcity/engine/script/handlers/PlayerOps.js';
-import ServerOps from '#lostcity/engine/script/handlers/ServerOps.js';
-import StringOps from '#lostcity/engine/script/handlers/StringOps.js';
+import { ScriptExecutionState, ScriptFile, ScriptPointer, ScriptState } from '../../../../runescript-runtime/dist/runescript-runtime.js';
 
 import Entity from '#lostcity/entity/Entity.js';
 import { ScriptArgument } from '#lostcity/entity/EntityQueueRequest.js';
@@ -25,45 +6,28 @@ import Loc from '#lostcity/entity/Loc.js';
 import Obj from '#lostcity/entity/Obj.js';
 import Npc from '#lostcity/entity/Npc.js';
 import Player from '#lostcity/entity/Player.js';
-import Environment from '#lostcity/util/Environment.js';
 import { printWarning } from '#lostcity/util/Logger.js';
-
-export type CommandHandler = (state: ScriptState) => void;
-export type CommandHandlers = {
-    [opcode: number]: CommandHandler;
-};
+import World from '#lostcity/engine/World.js';
 
 // script executor
 export default class ScriptRunner {
-    static readonly HANDLERS: CommandHandlers = {
-        // Language required opcodes
-        ...CoreOps,
-        ...ServerOps,
-        ...PlayerOps,
-        ...NpcOps,
-        ...LocOps,
-        ...ObjOps,
-        ...NpcConfigOps,
-        ...LocConfigOps,
-        ...ObjConfigOps,
-        ...InvOps,
-        ...EnumOps,
-        ...StringOps,
-        ...NumberOps,
-        ...DbOps,
-        ...DebugOps
-    };
-
-    /**
-     *
-     * @param script
-     * @param self
-     * @param target
-     * @param on
-     * @param args
-     */
     static init(script: ScriptFile, self: Entity | null = null, target: Entity | null = null, args: ScriptArgument[] | null = []) {
-        const state = new ScriptState(script, args);
+        const intLocals: number[] = [];
+        const stringLocals: string[] = [];
+
+        if (args !== null && args.length > 0) {
+            for (let i = 0; i < args.length; i++) {
+                const arg = args[i];
+
+                if (typeof arg === 'number') {
+                    intLocals.push(arg);
+                } else {
+                    stringLocals.push(arg);
+                }
+            }
+        }
+
+        const state = new ScriptState(script, Int32Array.from(intLocals), stringLocals);
         state.self = self;
 
         if (self instanceof Player) {
@@ -117,118 +81,89 @@ export default class ScriptRunner {
         return state;
     }
 
-    static execute(state: ScriptState, reset = false, benchmark = false) {
-        try {
-            if (reset) {
-                state.reset();
-            }
+    static execute(state: ScriptState, reset = false, benchmark = false): ScriptExecutionState {
+        if (state.execution !== ScriptExecutionState.Running) {
+            // state.executionHistory.push(state.execution);
+        }
 
-            if (state.execution !== ScriptState.RUNNING) {
-                state.executionHistory.push(state.execution);
-            }
-            state.execution = ScriptState.RUNNING;
+        const start: number = performance.now() * 1000;
+        state.execute(World);
+        const time: number = (performance.now() * 1000 - start) | 0;
+        const message: string = `Warning [cpu time]: Script: ${state.scriptName}, time: ${time}us, opcount: ${state.opcount}`;
+        if (state.self instanceof Player) {
+            state.self.wrappedMessageGame(message);
+        } else {
+            printWarning(message);
+        }
 
-            const start: number = performance.now() * 1000;
-            while (state.execution === ScriptState.RUNNING) {
-                if (state.pc >= state.script.opcodes.length || state.pc < -1) {
-                    throw new Error('Invalid program counter: ' + state.pc + ', max expected: ' + state.script.opcodes.length);
-                }
+        if (state.execution === ScriptExecutionState.Aborted) {
+            // TODO: move all the commented code into the rust lib.
 
-                // if we're benchmarking we don't care about the opcount
-                if (!benchmark && state.opcount > 500_000) {
-                    throw new Error('Too many instructions');
-                }
-
-                state.opcount++;
-                ScriptRunner.executeInner(state, state.script.opcodes[++state.pc]);
-            }
-            const time: number = ((performance.now() * 1000) - start) | 0;
-            if (Environment.NODE_DEBUG_PROFILER && time > 1000) {
-                const message: string = `Warning [cpu time]: Script: ${state.script.name}, time: ${time}us, opcount: ${state.opcount}`;
-                if (state.self instanceof Player) {
-                    state.self.wrappedMessageGame(message);
-                } else {
-                    printWarning(message);
-                }
-            }
-        } catch (err: any) {
             // print the last opcode executed
-            if (state.pc >= 0 && state.pc < state.script.opcodes.length) {
-                const opcode = state.script.opcodes[state.pc];
-
-                let secondary = state.intOperand;
-                if (opcode === ScriptOpcode.POP_VARP || opcode === ScriptOpcode.POP_VARN || opcode === ScriptOpcode.PUSH_VARP || opcode === ScriptOpcode.PUSH_VARN) {
-                    secondary = (state.intOperand >> 16) & 0x1;
-                } else if (opcode <= ScriptOpcode.POP_ARRAY_INT) {
-                    secondary = 0;
-                }
-
-                err.message = ScriptOpcode[opcode].toLowerCase() + ' ' + err.message;
-                if (secondary) {
-                    err.message = '.' + err.message;
-                }
-            }
+            // const opcodes = state.opcodes;
+            // if (state.pc >= 0 && state.pc < opcodes.length) {
+            //     const opcode = opcodes[state.pc];
+            //
+            //     let secondary = state.intOperand;
+            //     if (opcode === ScriptOpcode.POP_VARP || opcode === ScriptOpcode.POP_VARN || opcode === ScriptOpcode.PUSH_VARP || opcode === ScriptOpcode.PUSH_VARN) {
+            //         secondary = (state.intOperand >> 16) & 0x1;
+            //     } else if (opcode <= ScriptOpcode.POP_ARRAY_INT) {
+            //         secondary = 0;
+            //     }
+            //
+            //     err.message = ScriptOpcode[opcode].toLowerCase() + ' ' + err.message;
+            //     if (secondary) {
+            //         err.message = '.' + err.message;
+            //     }
+            // }
 
             if (state.self instanceof Player) {
-                state.self.wrappedMessageGame(`script error: ${err.message}`);
-                state.self.wrappedMessageGame(`file: ${state.script.fileName}`);
-                state.self.wrappedMessageGame('');
+                state.self.wrappedMessageGame(state.error);
 
-                state.self.wrappedMessageGame('stack backtrace:');
-                state.self.wrappedMessageGame(`    1: ${state.script.name} - ${state.script.fileName}:${state.script.lineNumber(state.pc)}`);
-
-                let trace = 1;
-                for (let i = state.fp; i > 0; i--) {
-                    const frame = state.frames[i];
-                    if (frame) {
-                        trace++;
-                        state.self.wrappedMessageGame(`    ${trace}: ${frame.script.name} - ${frame.script.fileName}:${frame.script.lineNumber(frame.pc)}`);
-                    }
-                }
-                for (let i = state.debugFp; i >= 0; i--) {
-                    const frame = state.debugFrames[i];
-                    if (frame) {
-                        trace++;
-                        state.self.wrappedMessageGame(`    ${trace}: ${frame.script.name} - ${frame.script.fileName}:${frame.script.lineNumber(frame.pc)}`);
-                    }
-                }
+                // let trace = 1;
+                // for (let i = state.fp; i > 0; i--) {
+                //     const frame = state.frames[i];
+                //     if (frame) {
+                //         trace++;
+                //         state.self.wrappedMessageGame(`    ${trace}: ${frame.script.name} - ${frame.script.fileName}:${frame.script.lineNumber(frame.pc)}`);
+                //     }
+                // }
+                // for (let i = state.debugFp; i >= 0; i--) {
+                //     const frame = state.debugFrames[i];
+                //     if (frame) {
+                //         trace++;
+                //         state.self.wrappedMessageGame(`    ${trace}: ${frame.script.name} - ${frame.script.fileName}:${frame.script.lineNumber(frame.pc)}`);
+                //     }
+                // }
             }
 
-            console.error(`script error: ${err.message}`);
-            console.error(`file: ${state.script.fileName}`);
-            console.error('');
+            // console.error(state.error);
 
-            console.error('stack backtrace:');
-            console.error(`    1: ${state.script.name} - ${state.script.fileName}:${state.script.lineNumber(state.pc)}`);
+            // let trace = 1;
+            // for (let i = state.fp; i > 0; i--) {
+            //     const frame = state.frames[i];
+            //     if (frame) {
+            //         trace++;
+            //         console.error(`    ${trace}: ${frame.script.name} - ${frame.script.fileName}:${frame.script.lineNumber(frame.pc)}`);
+            //     }
+            // }
+            // for (let i = state.debugFp; i >= 0; i--) {
+            //     const frame = state.debugFrames[i];
+            //     if (frame) {
+            //         trace++;
+            //         console.error(`    ${trace}: ${frame.script.name} - ${frame.script.fileName}:${frame.script.lineNumber(frame.pc)}`);
+            //     }
+            // }
 
-            let trace = 1;
-            for (let i = state.fp; i > 0; i--) {
-                const frame = state.frames[i];
-                if (frame) {
-                    trace++;
-                    console.error(`    ${trace}: ${frame.script.name} - ${frame.script.fileName}:${frame.script.lineNumber(frame.pc)}`);
-                }
-            }
-            for (let i = state.debugFp; i >= 0; i--) {
-                const frame = state.debugFrames[i];
-                if (frame) {
-                    trace++;
-                    console.error(`    ${trace}: ${frame.script.name} - ${frame.script.fileName}:${frame.script.lineNumber(frame.pc)}`);
-                }
-            }
+            state.free();
+            return ScriptExecutionState.Aborted;
+        }
 
-            state.execution = ScriptState.ABORTED;
+        if (state.execution === ScriptExecutionState.Finished) {
+            state.free();
+            return ScriptExecutionState.Finished;
         }
 
         return state.execution;
-    }
-
-    static executeInner(state: ScriptState, opcode: number) {
-        const handler = ScriptRunner.HANDLERS[opcode];
-        if (!handler) {
-            throw new Error(`Unknown opcode ${opcode}`);
-        }
-
-        handler(state);
     }
 }

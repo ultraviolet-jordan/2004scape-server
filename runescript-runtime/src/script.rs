@@ -1,14 +1,18 @@
 #![allow(non_snake_case)]
 
-use std::rc::Rc;
-use js_sys::{Array, JsString, Map, SharedArrayBuffer, Uint16Array};
-use wasm_bindgen::{JsCast, JsValue};
-use wasm_bindgen::prelude::wasm_bindgen;
+use crate::loc_ops::Loc;
+use crate::npc_ops::Npc;
+use crate::obj_ops::Obj;
 use crate::player_ops::Player;
+use js_sys::{Array, Map};
+use std::collections::HashMap;
+use std::rc::Rc;
+use wasm_bindgen::prelude::wasm_bindgen;
+use wasm_bindgen::JsValue;
 
 #[repr(u16)]
 #[wasm_bindgen]
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum ScriptOpcode {
     // Core language ops (0-99)
     PushConstantInt = 0,    // official, see cs2
@@ -421,6 +425,423 @@ pub enum ScriptOpcode {
     MapLastBandwidthOut = 10013, // custom
 }
 
+impl From<u16> for ScriptOpcode {
+    fn from(code: u16) -> ScriptOpcode {
+        match code {
+            // Core language ops (0-99)
+            0 => ScriptOpcode::PushConstantInt,
+            1 => ScriptOpcode::PushVarp,
+            2 => ScriptOpcode::PopVarp,
+            3 => ScriptOpcode::PushConstantString,
+            4 => ScriptOpcode::PushVarn,
+            5 => ScriptOpcode::PopVarn,
+            6 => ScriptOpcode::Branch,
+            7 => ScriptOpcode::BranchNot,
+            8 => ScriptOpcode::BranchEquals,
+            9 => ScriptOpcode::BranchLessThan,
+            10 => ScriptOpcode::BranchGreaterThan,
+            11 => ScriptOpcode::PushVars,
+            12 => ScriptOpcode::PopVars,
+            21 => ScriptOpcode::Return,
+            22 => ScriptOpcode::GoSub,
+            23 => ScriptOpcode::Jump,
+            24 => ScriptOpcode::Switch,
+            25 => ScriptOpcode::PushVarbit,
+            26 => ScriptOpcode::PopVarbit,
+            31 => ScriptOpcode::BranchLessThanOrEquals,
+            32 => ScriptOpcode::BranchGreaterThanOrEquals,
+            33 => ScriptOpcode::PushIntLocal,
+            34 => ScriptOpcode::PopIntLocal,
+            35 => ScriptOpcode::PushStringLocal,
+            36 => ScriptOpcode::PopStringLocal,
+            37 => ScriptOpcode::JoinString,
+            38 => ScriptOpcode::PopIntDiscard,
+            39 => ScriptOpcode::PopStringDiscard,
+            40 => ScriptOpcode::GoSubWithParams,
+            41 => ScriptOpcode::JumpWithParams,
+            42 => ScriptOpcode::PushVarcInt,
+            43 => ScriptOpcode::PopVarcInt,
+            44 => ScriptOpcode::DefineArray,
+            45 => ScriptOpcode::PushArrayInt,
+            46 => ScriptOpcode::PopArrayInt,
+            100 => ScriptOpcode::EndCoreOps,
+            // Server ops (1000-1999)
+            1000 => ScriptOpcode::CoordX,
+            1001 => ScriptOpcode::CoordY,
+            1002 => ScriptOpcode::CoordZ,
+            1003 => ScriptOpcode::Distance,
+            1004 => ScriptOpcode::HuntAll,
+            1005 => ScriptOpcode::HuntNext,
+            1006 => ScriptOpcode::InZone,
+            1007 => ScriptOpcode::LineOfSight,
+            1008 => ScriptOpcode::LineOfWalk,
+            1009 => ScriptOpcode::MapBlocked,
+            1010 => ScriptOpcode::MapIndoors,
+            1011 => ScriptOpcode::MapClock,
+            1012 => ScriptOpcode::MapLocAddUnsafe,
+            1013 => ScriptOpcode::MapMembers,
+            1014 => ScriptOpcode::MapPlayerCount,
+            1015 => ScriptOpcode::MapFindSquare,
+            1016 => ScriptOpcode::MoveCoord,
+            1017 => ScriptOpcode::PlayerCount,
+            1018 => ScriptOpcode::ProjAnimMap,
+            1019 => ScriptOpcode::ProjAnimNpc,
+            1020 => ScriptOpcode::ProjAnimPl,
+            1021 => ScriptOpcode::SeqLength,
+            1022 => ScriptOpcode::SplitGet,
+            1023 => ScriptOpcode::SplitGetAnim,
+            1024 => ScriptOpcode::SplitInit,
+            1025 => ScriptOpcode::SplitLineCount,
+            1026 => ScriptOpcode::SplitPageCount,
+            1027 => ScriptOpcode::SpotAnimMap,
+            1028 => ScriptOpcode::StatRandom,
+            1029 => ScriptOpcode::StructParam,
+            1030 => ScriptOpcode::WorldDelay,
+            1031 => ScriptOpcode::NpcsCount,
+            1032 => ScriptOpcode::ZonesCount,
+            1033 => ScriptOpcode::LocsCount,
+            1034 => ScriptOpcode::ObjsCount,
+            1035 => ScriptOpcode::MapMulti,
+            // Player ops (2000-2499)
+            2000 => ScriptOpcode::AllowDesign,
+            2001 => ScriptOpcode::Anim,
+            2002 => ScriptOpcode::BasReadyAnim,
+            2003 => ScriptOpcode::BasRunning,
+            2004 => ScriptOpcode::BasTurnOnSpot,
+            2005 => ScriptOpcode::BasWalkB,
+            2006 => ScriptOpcode::BasWalkF,
+            2007 => ScriptOpcode::BasWalkL,
+            2008 => ScriptOpcode::BasWalkR,
+            2009 => ScriptOpcode::BufferFull,
+            2010 => ScriptOpcode::BuildAppearance,
+            2011 => ScriptOpcode::Busy,
+            2012 => ScriptOpcode::CamLookAt,
+            2013 => ScriptOpcode::CamMoveTo,
+            2014 => ScriptOpcode::CamReset,
+            2015 => ScriptOpcode::CamShake,
+            2016 => ScriptOpcode::ClearQueue,
+            2017 => ScriptOpcode::ClearSoftTimer,
+            2018 => ScriptOpcode::ClearTimer,
+            2019 => ScriptOpcode::GetTimer,
+            2020 => ScriptOpcode::Coord,
+            2021 => ScriptOpcode::Damage,
+            2022 => ScriptOpcode::Displayname,
+            2023 => ScriptOpcode::FaceSquare,
+            2024 => ScriptOpcode::FindUid,
+            2025 => ScriptOpcode::Gender,
+            2026 => ScriptOpcode::GetQueue,
+            2027 => ScriptOpcode::StatAdvance,
+            2028 => ScriptOpcode::HeadiconsGet,
+            2029 => ScriptOpcode::HeadiconsSet,
+            2030 => ScriptOpcode::HealEnergy,
+            2031 => ScriptOpcode::HintCoord,
+            2032 => ScriptOpcode::HintNpc,
+            2033 => ScriptOpcode::HintPlayer,
+            2034 => ScriptOpcode::HintStop,
+            2035 => ScriptOpcode::IfClose,
+            2036 => ScriptOpcode::TutClose,
+            2037 => ScriptOpcode::IfMultiZone,
+            2038 => ScriptOpcode::IfOpenChat,
+            2039 => ScriptOpcode::TutOpen,
+            2040 => ScriptOpcode::IfOpenMain,
+            2041 => ScriptOpcode::IfOpenMainSide,
+            2042 => ScriptOpcode::IfOpenSide,
+            2043 => ScriptOpcode::IfSetAnim,
+            2044 => ScriptOpcode::IfSetColour,
+            2045 => ScriptOpcode::IfSetHide,
+            2046 => ScriptOpcode::IfSetModel,
+            2047 => ScriptOpcode::IfSetRecol,
+            2048 => ScriptOpcode::IfSetNpcHead,
+            2049 => ScriptOpcode::IfSetObject,
+            2050 => ScriptOpcode::IfSetPlayerHead,
+            2051 => ScriptOpcode::IfSetPosition,
+            2052 => ScriptOpcode::IfSetResumeButtons,
+            2053 => ScriptOpcode::IfSetTab,
+            2054 => ScriptOpcode::IfSetTabActive,
+            2055 => ScriptOpcode::TutFlash,
+            2056 => ScriptOpcode::IfSetText,
+            2057 => ScriptOpcode::LastLoginInfo,
+            2058 => ScriptOpcode::LastCom,
+            2059 => ScriptOpcode::LastInt,
+            2060 => ScriptOpcode::LastItem,
+            2061 => ScriptOpcode::LastSlot,
+            2062 => ScriptOpcode::LastTargetSlot,
+            2063 => ScriptOpcode::LastUseItem,
+            2064 => ScriptOpcode::LastUseSlot,
+            2065 => ScriptOpcode::LongQueue,
+            2066 => ScriptOpcode::Mes,
+            2067 => ScriptOpcode::MidiJingle,
+            2068 => ScriptOpcode::MidiSong,
+            2069 => ScriptOpcode::Name,
+            2070 => ScriptOpcode::PApRange,
+            2071 => ScriptOpcode::PArriveDelay,
+            2072 => ScriptOpcode::PCountDialog,
+            2073 => ScriptOpcode::PDelay,
+            2074 => ScriptOpcode::PExactMove,
+            2075 => ScriptOpcode::PFindUid,
+            2076 => ScriptOpcode::PLocMerge,
+            2077 => ScriptOpcode::PLogout,
+            2078 => ScriptOpcode::POpHeld,
+            2079 => ScriptOpcode::POpLoc,
+            2080 => ScriptOpcode::POpNpc,
+            2081 => ScriptOpcode::POpNpcT,
+            2082 => ScriptOpcode::POpObj,
+            2083 => ScriptOpcode::POpPlayer,
+            2084 => ScriptOpcode::POpPlayerT,
+            2085 => ScriptOpcode::PPauseButton,
+            2086 => ScriptOpcode::PStopAction,
+            2087 => ScriptOpcode::PTeleJump,
+            2088 => ScriptOpcode::PTeleport,
+            2089 => ScriptOpcode::PWalk,
+            2090 => ScriptOpcode::PlayerFindAllZone,
+            2091 => ScriptOpcode::PlayerFindNext,
+            2092 => ScriptOpcode::Queue,
+            2093 => ScriptOpcode::Say,
+            2094 => ScriptOpcode::WalkTrigger,
+            2095 => ScriptOpcode::SetTimer,
+            2096 => ScriptOpcode::SoftTimer,
+            2097 => ScriptOpcode::SoundSynth,
+            2098 => ScriptOpcode::SpotAnimPl,
+            2099 => ScriptOpcode::StaffModLevel,
+            2100 => ScriptOpcode::Stat,
+            2101 => ScriptOpcode::StatAdd,
+            2102 => ScriptOpcode::StatBase,
+            2103 => ScriptOpcode::StatHeal,
+            2104 => ScriptOpcode::StatSub,
+            2105 => ScriptOpcode::StrongQueue,
+            2106 => ScriptOpcode::Uid,
+            2107 => ScriptOpcode::WeakQueue,
+            2108 => ScriptOpcode::IfOpenMainOverlay,
+            2109 => ScriptOpcode::AfkEvent,
+            2110 => ScriptOpcode::LowMemory,
+            2111 => ScriptOpcode::SetIdkit,
+            2112 => ScriptOpcode::PClearPendingAction,
+            2113 => ScriptOpcode::GetWalkTrigger,
+            2114 => ScriptOpcode::Busy2,
+            2115 => ScriptOpcode::FindHero,
+            2116 => ScriptOpcode::BothHeroPoints,
+            2117 => ScriptOpcode::SetGender,
+            2118 => ScriptOpcode::SetSkinColour,
+            2119 => ScriptOpcode::PAnimProtect,
+            2120 => ScriptOpcode::RunEnergy,
+            2121 => ScriptOpcode::Weight,
+            2122 => ScriptOpcode::LastCoord,
+            // Npc ops (2500-2999)
+            2500 => ScriptOpcode::NpcAdd,
+            2501 => ScriptOpcode::NpcAnim,
+            2502 => ScriptOpcode::NpcBaseStat,
+            2503 => ScriptOpcode::NpcCategory,
+            2504 => ScriptOpcode::NpcChangeType,
+            2505 => ScriptOpcode::NpcCoord,
+            2506 => ScriptOpcode::NpcDamage,
+            2507 => ScriptOpcode::NpcDel,
+            2508 => ScriptOpcode::NpcDelay,
+            2509 => ScriptOpcode::NpcFaceSquare,
+            2510 => ScriptOpcode::NpcFind,
+            2511 => ScriptOpcode::NpcFindAllAny,
+            2512 => ScriptOpcode::NpcFindAll,
+            2513 => ScriptOpcode::NpcFindExact,
+            2514 => ScriptOpcode::NpcFindHero,
+            2515 => ScriptOpcode::NpcFindAllZone,
+            2516 => ScriptOpcode::NpcFindNext,
+            2517 => ScriptOpcode::NpcFindUid,
+            2518 => ScriptOpcode::NpcGetMode,
+            2519 => ScriptOpcode::NpcHeroPoints,
+            2520 => ScriptOpcode::NpcName,
+            2521 => ScriptOpcode::NpcParam,
+            2522 => ScriptOpcode::NpcQueue,
+            2523 => ScriptOpcode::NpcRange,
+            2524 => ScriptOpcode::NpcSay,
+            2525 => ScriptOpcode::NpcHuntAll,
+            2526 => ScriptOpcode::NpcHuntNext,
+            2527 => ScriptOpcode::NpcSetHunt,
+            2528 => ScriptOpcode::NpcSetHuntMode,
+            2529 => ScriptOpcode::NpcSetMode,
+            2530 => ScriptOpcode::NpcWalkTrigger,
+            2531 => ScriptOpcode::NpcSetTimer,
+            2532 => ScriptOpcode::NpcStat,
+            2533 => ScriptOpcode::NpcStatAdd,
+            2534 => ScriptOpcode::NpcStatHeal,
+            2535 => ScriptOpcode::NpcStatSub,
+            2536 => ScriptOpcode::NpcTele,
+            2537 => ScriptOpcode::NpcType,
+            2538 => ScriptOpcode::NpcUid,
+            2539 => ScriptOpcode::SpotAnimNpc,
+            2540 => ScriptOpcode::NpcWalk,
+            2541 => ScriptOpcode::NpcAttackRange,
+            2542 => ScriptOpcode::NpcHasOp,
+            2543 => ScriptOpcode::NpcArriveDelay,
+            // Loc ops (3000-3499)
+            3000 => ScriptOpcode::LocAdd,
+            3001 => ScriptOpcode::LocAngle,
+            3002 => ScriptOpcode::LocAnim,
+            3003 => ScriptOpcode::LocCategory,
+            3004 => ScriptOpcode::LocChange,
+            3005 => ScriptOpcode::LocCoord,
+            3006 => ScriptOpcode::LocDel,
+            3007 => ScriptOpcode::LocFind,
+            3008 => ScriptOpcode::LocFindAllZone,
+            3009 => ScriptOpcode::LocFindNext,
+            3010 => ScriptOpcode::LocName,
+            3011 => ScriptOpcode::LocParam,
+            3012 => ScriptOpcode::LocShape,
+            3013 => ScriptOpcode::LocType,
+            // Obj ops (3500-4000)
+            3500 => ScriptOpcode::ObjAdd,
+            3501 => ScriptOpcode::ObjAddAll,
+            3502 => ScriptOpcode::ObjCoord,
+            3503 => ScriptOpcode::ObjCount,
+            3504 => ScriptOpcode::ObjDel,
+            3505 => ScriptOpcode::ObjName,
+            3506 => ScriptOpcode::ObjParam,
+            3507 => ScriptOpcode::ObjTakeItem,
+            3508 => ScriptOpcode::ObjType,
+            3509 => ScriptOpcode::ObjFind,
+            // Npc config ops (4000-4099)
+            4000 => ScriptOpcode::NcCategory,
+            4001 => ScriptOpcode::NcDebugname,
+            4002 => ScriptOpcode::NcDesc,
+            4003 => ScriptOpcode::NcName,
+            4004 => ScriptOpcode::NcOp,
+            4005 => ScriptOpcode::NcParam,
+            // Loc config ops (4100-4199)
+            4100 => ScriptOpcode::LcCategory,
+            4101 => ScriptOpcode::LcDebugname,
+            4102 => ScriptOpcode::LcDesc,
+            4103 => ScriptOpcode::LcName,
+            4104 => ScriptOpcode::LcOp,
+            4105 => ScriptOpcode::LcParam,
+            4106 => ScriptOpcode::LcWidth,
+            4107 => ScriptOpcode::LcLength,
+            // Obj config ops (4200-4299)
+            4200 => ScriptOpcode::OcCategory,
+            4201 => ScriptOpcode::OcCert,
+            4202 => ScriptOpcode::OcCost,
+            4203 => ScriptOpcode::OcDebugname,
+            4204 => ScriptOpcode::OcDesc,
+            4205 => ScriptOpcode::OcIop,
+            4206 => ScriptOpcode::OcMembers,
+            4207 => ScriptOpcode::OcName,
+            4208 => ScriptOpcode::OcOp,
+            4209 => ScriptOpcode::OcParam,
+            4210 => ScriptOpcode::OcStackable,
+            4211 => ScriptOpcode::OcTradeable,
+            4212 => ScriptOpcode::OcUncert,
+            4213 => ScriptOpcode::OcWearPos2,
+            4214 => ScriptOpcode::OcWearPos3,
+            4215 => ScriptOpcode::OcWearPos,
+            4216 => ScriptOpcode::OcWeight,
+            // Inventory ops (4300-4399)
+            4300 => ScriptOpcode::InvAllStock,
+            4301 => ScriptOpcode::InvSize,
+            4302 => ScriptOpcode::InvStockBase,
+            4303 => ScriptOpcode::InvAdd,
+            4304 => ScriptOpcode::InvChangeSlot,
+            4305 => ScriptOpcode::InvClear,
+            4306 => ScriptOpcode::InvDel,
+            4307 => ScriptOpcode::InvDelSlot,
+            4308 => ScriptOpcode::InvDropItem,
+            4309 => ScriptOpcode::InvDropSlot,
+            4310 => ScriptOpcode::InvFreespace,
+            4311 => ScriptOpcode::InvGetNum,
+            4312 => ScriptOpcode::InvGetObj,
+            4313 => ScriptOpcode::InvItemSpace,
+            4314 => ScriptOpcode::InvItemSpace2,
+            4315 => ScriptOpcode::InvMoveFromSlot,
+            4316 => ScriptOpcode::InvMoveToSlot,
+            4317 => ScriptOpcode::BothMoveInv,
+            4318 => ScriptOpcode::InvMoveItem,
+            4319 => ScriptOpcode::InvMoveItemCert,
+            4320 => ScriptOpcode::InvMoveItemUncert,
+            4321 => ScriptOpcode::InvSetSlot,
+            4322 => ScriptOpcode::InvTotal,
+            4323 => ScriptOpcode::InvTotalCat,
+            4324 => ScriptOpcode::InvTransmit,
+            4325 => ScriptOpcode::InvOtherTransmit,
+            4326 => ScriptOpcode::InvStopTransmit,
+            4327 => ScriptOpcode::BothDropSlot,
+            4328 => ScriptOpcode::InvDropAll,
+            4329 => ScriptOpcode::InvTotalParam,
+            4330 => ScriptOpcode::InvTotalParamStack,
+            // Enum ops (4400-4499)
+            4400 => ScriptOpcode::Enum,
+            4401 => ScriptOpcode::EnumGetOutputCount,
+            // String ops (4500-4599)
+            4500 => ScriptOpcode::AppendNum,
+            4501 => ScriptOpcode::Append,
+            4502 => ScriptOpcode::AppendSignNum,
+            4503 => ScriptOpcode::Lowercase,
+            4504 => ScriptOpcode::TextGender,
+            4505 => ScriptOpcode::ToString,
+            4506 => ScriptOpcode::Compare,
+            4507 => ScriptOpcode::TextSwitch,
+            4508 => ScriptOpcode::AppendChar,
+            4509 => ScriptOpcode::StringLength,
+            4510 => ScriptOpcode::SubString,
+            4511 => ScriptOpcode::StringIndexOfChar,
+            4512 => ScriptOpcode::StringIndexOfString,
+            // Number ops (4600-4699)
+            4600 => ScriptOpcode::Add,
+            4601 => ScriptOpcode::Sub,
+            4602 => ScriptOpcode::Multiply,
+            4603 => ScriptOpcode::Divide,
+            4604 => ScriptOpcode::Random,
+            4605 => ScriptOpcode::RandomInc,
+            4606 => ScriptOpcode::Interpolate,
+            4607 => ScriptOpcode::AddPercent,
+            4608 => ScriptOpcode::SetBit,
+            4609 => ScriptOpcode::ClearBit,
+            4610 => ScriptOpcode::TestBit,
+            4611 => ScriptOpcode::Modulo,
+            4612 => ScriptOpcode::Pow,
+            4613 => ScriptOpcode::InvPow,
+            4614 => ScriptOpcode::And,
+            4615 => ScriptOpcode::Or,
+            4616 => ScriptOpcode::Min,
+            4617 => ScriptOpcode::Max,
+            4618 => ScriptOpcode::Scale,
+            4619 => ScriptOpcode::BitCount,
+            4620 => ScriptOpcode::ToggleBit,
+            4621 => ScriptOpcode::SetBitRange,
+            4622 => ScriptOpcode::ClearBitRange,
+            4623 => ScriptOpcode::GetBitRange,
+            4624 => ScriptOpcode::SetBitRangeToInt,
+            4625 => ScriptOpcode::SinDeg,
+            4626 => ScriptOpcode::CosDeg,
+            4627 => ScriptOpcode::Atan2Deg,
+            4628 => ScriptOpcode::Abs,
+            // DB ops (7500-7599)
+            7500 => ScriptOpcode::DbFindWithCount,
+            7501 => ScriptOpcode::DbFindNext,
+            7502 => ScriptOpcode::DbGetField,
+            7503 => ScriptOpcode::DbGetFieldCount,
+            7504 => ScriptOpcode::DbListAllWithCount,
+            7505 => ScriptOpcode::DbGetRowTable,
+            7506 => ScriptOpcode::DbFindByIndex,
+            7507 => ScriptOpcode::DbFindRefineWithCount,
+            7508 => ScriptOpcode::DbFind,
+            7509 => ScriptOpcode::DbFindRefine,
+            7510 => ScriptOpcode::DbListAll,
+            // Debug ops (10000-11000)
+            10000 => ScriptOpcode::Error,
+            10001 => ScriptOpcode::MapProduction,
+            10002 => ScriptOpcode::MapLastClock,
+            10003 => ScriptOpcode::MapLastWorld,
+            10004 => ScriptOpcode::MapLastClientIn,
+            10005 => ScriptOpcode::MapLastNpc,
+            10006 => ScriptOpcode::MapLastPlayer,
+            10007 => ScriptOpcode::MapLastLogout,
+            10008 => ScriptOpcode::MapLastLogin,
+            10009 => ScriptOpcode::MapLastZone,
+            10010 => ScriptOpcode::MapLastClientOut,
+            10011 => ScriptOpcode::MapLastCleanup,
+            10012 => ScriptOpcode::MapLastBandwidthIn,
+            10013 => ScriptOpcode::MapLastBandwidthOut,
+            _ => panic!("Invalid script opcode value: {}", code),
+        }
+    }
+}
+
 #[wasm_bindgen]
 #[derive(Clone)]
 pub struct ScriptInfo {
@@ -449,8 +870,8 @@ impl ScriptInfo {
             lookup,
             params,
             pcs,
-            lines
-        }
+            lines,
+        };
     }
 }
 
@@ -465,8 +886,8 @@ pub struct ScriptFile {
     switch_table: Map,
     info: ScriptInfo,
     codes: Vec<u16>,
-    int_operands: Vec<i32>,
-    string_operands: Array,
+    int_operands: Vec<usize>,
+    string_operands: Vec<String>,
 }
 
 #[wasm_bindgen]
@@ -481,7 +902,7 @@ impl ScriptFile {
         switch_table: Map,
         info: ScriptInfo,
         codes: Vec<u16>,
-        int_operands: Vec<i32>,
+        int_operands: Vec<usize>,
         string_operands: Array,
     ) -> ScriptFile {
         return ScriptFile {
@@ -494,97 +915,57 @@ impl ScriptFile {
             info,
             codes,
             int_operands,
-            string_operands,
-        }
+            string_operands: string_operands
+                .iter()
+                .filter_map(|value| value.as_string()) // Convert JsValue to Option<String>
+                .collect::<Vec<String>>(),
+        };
+    }
+
+    #[wasm_bindgen]
+    pub fn _clone(&self) -> ScriptFile {
+        self.clone()
     }
 
     #[wasm_bindgen(method, getter)]
-    pub fn id(&self) -> usize { // TODO: remove this export after refactoring scriptstate.
+    pub fn id(&self) -> usize {
+        // TODO: remove this export after refactoring scriptstate.
         return self.id;
     }
 
     #[wasm_bindgen(method, getter)]
-    pub fn name(&self) -> String { // TODO: remove this export after refactoring scriptstate.
+    pub fn name(&self) -> String {
+        // TODO: remove this export after refactoring scriptstate.
         return self.info.name.clone();
     }
 
-    #[wasm_bindgen(method, getter = fileName)]
-    pub fn file_name(&self) -> String { // TODO: remove this export after refactoring scriptstate.
-        return self.info.path.clone().split('/')
-            .last()
-            .unwrap()
-            .split('\\')
-            .last()
-            .map(String::from)
-            .unwrap();
-    }
-
-    #[wasm_bindgen(method, js_name = lineNumber)]
-    pub fn line_number(&self, pc: i32) -> i32 { // TODO: remove this export after refactoring scriptstate.
-        for i in 0..self.info.pcs.len() {
-            if self.info.pcs[i] > pc {
-                return self.info.lines[i.saturating_sub(1)];
-            }
-        }
-        *self.info.lines.last().unwrap_or(&0)
-    }
-
     #[wasm_bindgen(method, getter)]
-    pub fn params(&self) -> Vec<u8> { // TODO: remove this export after refactoring scriptstate.
+    pub fn params(&self) -> Vec<u8> {
+        // TODO: remove this export after refactoring scriptstate.
         return self.info.params.clone();
     }
 
     #[wasm_bindgen(method, getter)]
-    pub fn lookup(&self) -> i32 { // TODO: remove this export after refactoring scriptstate.
+    pub fn lookup(&self) -> i32 {
         return self.info.lookup;
-    }
-
-    #[wasm_bindgen(method, getter = intArgCount)]
-    pub fn int_arg_count(&self) -> u16 { // TODO: remove this export after refactoring scriptstate.
-        return self.int_arg_count;
-    }
-
-    #[wasm_bindgen(method, getter = stringArgCount)]
-    pub fn string_arg_count(&self) -> u16 { // TODO: remove this export after refactoring scriptstate.
-        return self.string_arg_count;
-    }
-
-    #[wasm_bindgen(method, getter = intOperands)]
-    pub fn int_operands(&self) -> Vec<i32> { // TODO: remove this export after refactoring scriptstate.
-        return self.int_operands.clone();
-    }
-
-    #[wasm_bindgen(method, getter = stringOperands)]
-    pub fn string_operands(&self) -> Array { // TODO: remove this export after refactoring scriptstate.
-        return self.string_operands.clone();
-    }
-
-    #[wasm_bindgen(method, js_name = switchTables)] // returns Map<number, number> | undefined
-    pub fn switch_tables(&self, key: i32) -> JsValue { // TODO: remove this export after refactoring scriptstate.
-        return self.switch_table.get(&JsValue::from(key));
-    }
-
-    #[wasm_bindgen(method, getter)]
-    pub fn opcodes(&self) -> Vec<u16> { // TODO: remove this export after refactoring scriptstate.
-        return self.codes.clone();
     }
 }
 
 struct GoSubFrame {
     script: ScriptFile,
-    pc: i32, // program counter
+    pc: isize, // program counter
     int_locals: Vec<i32>,
     string_locals: Vec<String>,
 }
 
 struct GoToFrame {
     script: ScriptFile,
-    pc: i32,
+    pc: isize,
 }
 
 #[repr(i8)]
 #[wasm_bindgen]
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq)]
 pub enum ScriptExecutionState {
     Aborted,
     Running,
@@ -636,180 +1017,50 @@ impl From<i32> for ScriptPointer {
 pub struct ScriptState {
     script: ScriptFile,
     execution_state: ScriptExecutionState,
-    pc: i32,      // program counter
+    pc: isize,    // program counter
     opcount: i32, // number of opcodes executed
     frame_stack: Vec<GoSubFrame>,
     fp: usize, // frame pointer
     goto_frame_stack: Vec<GoToFrame>,
     goto_fp: usize,
-    int_stack: Vec<i32>,
+    int_stack: [i32; 1000],
     isp: usize, // integer stack pointer
     string_stack: Vec<String>,
     ssp: usize, // string stack pointer
     int_locals: Vec<i32>,
     string_locals: Vec<String>,
     pointers: i32, // state pointers
+    trigger: u8,
+    _self: JsValue,
     active_player: Rc<Player>,
     active_player2: Rc<Player>,
-}
-
-#[wasm_bindgen]
-impl ScriptState {
-    // const ACTIVE_NPC: [ScriptPointer; 2] =
-    //     [ScriptPointer::ActiveNpc, ScriptPointer::ActiveNpc2];
-    //
-    // const ACTIVE_LOC: [ScriptPointer; 2] =
-    //     [ScriptPointer::ActiveLoc, ScriptPointer::ActiveLoc2];
-    //
-    // const ACTIVE_OBJ: [ScriptPointer; 2] =
-    //     [ScriptPointer::ActiveObj, ScriptPointer::ActiveObj2];
-    //
-    // const ACTIVE_PLAYER: [ScriptPointer; 2] =
-    //     [ScriptPointer::ActivePlayer, ScriptPointer::ActivePlayer2];
-    //
-    // const PROTECTED_ACTIVE_PLAYER: [ScriptPointer; 2] = [
-    //     ScriptPointer::ProtectedActivePlayer,
-    //     ScriptPointer::ProtectedActivePlayer2,
-    // ];
-
-    /// Creates a new `ScriptState` instance with specified `i32` and `String` arguments.
-    ///
-    /// This method initializes a `ScriptState` for a given `ScriptFile` and sets up local
-    /// variables based on the provided `i32` and `String` arguments. It allocates space for
-    /// local variables and populates them with the arguments supplied.
-    ///
-    /// # Parameters
-    ///
-    /// - `script`: A reference to the `ScriptFile` to execute.
-    /// - `int_args`: A vector of `i32` representing integer arguments for the script.
-    /// - `string_args`: A vector of `String` representing string arguments for the script.
-    ///
-    /// # Return
-    ///
-    /// Returns a new instance of `ScriptState` initialized with the provided arguments.
-    ///
-    /// # Safety
-    ///
-    /// This function assumes that the `ScriptFile` provided has valid local counts for
-    /// integer and string variables. If the `script` is improperly initialized, it may cause
-    /// undefined behavior.
-    #[rustfmt::skip]
-    #[wasm_bindgen(constructor)]
-        pub fn new(
-        script: ScriptFile,
-        int_args: Vec<i32>,
-        string_args: Vec<String>,
-    ) -> ScriptState {
-        let mut int_locals: Vec<i32> = vec![0; script.int_local_count as usize];
-        let mut string_locals: Vec<String> = vec![String::new(); script.string_local_count as usize];
-
-        int_locals[..int_args.len()].copy_from_slice(&int_args);
-        string_locals[..string_args.len()].clone_from_slice(&string_args);
-
-        return ScriptState {
-            script,
-            execution_state: ScriptExecutionState::Running,
-            pc: -1,
-            opcount: 0,
-            frame_stack: Vec::with_capacity(50),
-            fp: 0,
-            goto_frame_stack: Vec::with_capacity(50),
-            goto_fp: 0,
-            int_stack: vec![0; 1000],
-            isp: 0,
-            string_stack: vec![String::new(); 1000],
-            ssp: 0,
-            int_locals,
-            string_locals,
-            pointers: 0,
-            active_player: Rc::new(Player::null()),
-            active_player2: Rc::new(Player::null()),
-        }
-    }
-
-    #[inline(always)]
-    pub fn int_operand(&self) -> i32 {
-        return self.script.int_operands[self.pc as usize];
-    }
-
-    /// Pushes an `i32` value onto the integer stack.
-    ///
-    /// This method places the provided integer value at the current integer stack pointer
-    /// and then increments the pointer. It assumes that there is sufficient space on the stack.
-    /// When a `ScriptState` is created, it allocates the string stack with a capacity of 1000.
-    ///
-    /// # Parameters
-    ///
-    /// - `value`: The `i32` value to push onto the integer stack.
-    #[inline(always)]
-    pub fn push_int(&mut self, value: i32) {
-        self.int_stack[self.isp] = value;
-        self.isp += 1;
-    }
-
-    /// Pops the top integer value from the integer stack.
-    ///
-    /// This method decreases the integer stack pointer and retrieves the integer at the new top
-    /// of the stack. The caller should ensure there are values on the stack.
-    ///
-    /// # Return
-    ///
-    /// Returns the top integer value as an `i32`.
-    #[inline(always)]
-    pub fn pop_int(&mut self) -> i32 {
-        self.isp -= 1;
-        return self.int_stack[self.isp];
-    }
-
-    // ---- strings
-
-    #[inline(always)]
-    pub fn string_operand(&self) -> String {
-        // return self.script.string_operands
-        //     .iter()
-        //     .filter_map(|value| value.as_string()) // Convert JsValue to Option<String>
-        //     .collect::<Vec<String>>()
-        //     [self.pc as usize]
-        //     .clone();
-        return self.script.string_operands.get(self.pc as u32).as_string().unwrap();
-    }
-
-    /// Pushes a `String` value onto the string stack.
-    ///
-    /// This method places the provided string value at the current string stack pointer
-    /// and then increments the pointer. It assumes that there is sufficient space on the stack.
-    /// When a `ScriptState` is created, it allocates the string stack with a capacity of 1000.
-    ///
-    /// # Parameters
-    ///
-    /// - `value`: The `String` value to push onto the string stack.
-    #[inline(always)]
-    pub fn push_string(&mut self, value: String) {
-        self.string_stack[self.ssp] = value;
-        self.ssp += 1;
-    }
-
-    /// Pops the top string value from the string stack.
-    ///
-    /// This method decreases the string stack pointer and retrieves the string at the new top
-    /// of the stack. IThe caller should ensure there are values on the stack.
-    ///
-    /// # Return
-    ///
-    /// Returns the top string value as a `String`.
-    #[inline(always)]
-    pub fn pop_string(&mut self) -> String {
-        self.ssp -= 1;
-        return self.string_stack[self.ssp].clone();
-    }
-
-    pub fn set_pc(&mut self, pc: i32) {
-        self.pc = pc;
-        self.isp = 0;
-    }
+    active_npc: Rc<Npc>,
+    active_npc2: Rc<Npc>,
+    active_loc: Rc<Loc>,
+    active_loc2: Rc<Loc>,
+    active_obj: Rc<Obj>,
+    active_obj2: Rc<Obj>,
+    last_int: i32,
+    error: String,
 }
 
 impl ScriptState {
+    pub const ACTIVE_NPC: [ScriptPointer; 2] =
+        [ScriptPointer::ActiveNpc, ScriptPointer::ActiveNpc2];
+
+    pub const ACTIVE_LOC: [ScriptPointer; 2] =
+        [ScriptPointer::ActiveLoc, ScriptPointer::ActiveLoc2];
+
+    pub const ACTIVE_OBJ: [ScriptPointer; 2] =
+        [ScriptPointer::ActiveObj, ScriptPointer::ActiveObj2];
+
+    pub const ACTIVE_PLAYER: [ScriptPointer; 2] =
+        [ScriptPointer::ActivePlayer, ScriptPointer::ActivePlayer2];
+
+    pub const PROTECTED_ACTIVE_PLAYER: [ScriptPointer; 2] = [
+        ScriptPointer::ProtectedActivePlayer,
+        ScriptPointer::ProtectedActivePlayer2,
+    ];
 
     // ---- frames
 
@@ -943,6 +1194,332 @@ impl ScriptState {
         self.script = script;
     }
 
+    /// Protects the execution flow based on pointer validation and executes a callback on success.
+    ///
+    /// This method checks if the script state contains the required pointer based on the current operand.
+    /// If the pointer is valid, the provided `on_success` callback is executed with the script state.
+    /// Otherwise, an error is returned detailing the missing pointer.
+    ///
+    /// # Parameters
+    ///
+    /// - `pointers`: A slice of `ScriptPointer` values representing valid pointers for the current state.
+    /// - `on_success`: A closure that is executed if the required pointer is valid. It receives a mutable reference
+    ///   to the current `ScriptState` and returns a `Result<(), String>`.
+    ///
+    /// # Return
+    ///
+    /// Returns `Ok(())` if the pointer check succeeds and the `on_success` closure executes successfully.
+    /// If the pointer is invalid or the closure returns an error, a `Result::Err` with a descriptive error message is returned.
+    ///
+    /// # Panics
+    ///
+    /// This function does not panic, but it assumes that `pointers` has valid indices, which depends on the
+    /// operand value returned by `self.int_operand()`. Out-of-bounds indexing on `pointers` will result in a panic.
+    ///
+    /// # Side Effects
+    ///
+    /// - The state may be modified by the `on_success` closure. The closure has full access to the mutable state.
+    /// - The method does not alter any state if the pointer check fails or if an error is returned.
+    pub fn protect<F>(&mut self, pointers: &[ScriptPointer], on_success: F) -> Result<(), String>
+    where
+        F: FnOnce(&mut ScriptState) -> Result<(), String>,
+    {
+        let pointer: ScriptPointer = pointers[self.int_operand()];
+        if self.pointer_check(pointer) {
+            return on_success(self);
+        }
+        return Err(format!(
+            "Required pointer: {}, current: {}",
+            self.pointer_print(1 << pointer as i32),
+            self.pointer_print(self.pointers)
+        ));
+    }
+
+    /// Retrieves the active player from the script state based on the current operand.
+    ///
+    /// This method returns either `active_player` or `active_player2` based on the result of `self.int_operand()`.
+    /// If the operand is `0`, `active_player` is returned; otherwise, `active_player2` is returned.
+    ///
+    /// # Return
+    ///
+    /// Returns an `i32` representing the ID of the active player, which can be either `active_player` or `active_player2`
+    /// depending on the operand value.
+    ///
+    /// # Panics
+    ///
+    /// This function does not panic.
+    ///
+    /// # Side Effects
+    ///
+    /// - This function does not modify the internal state; it only reads the current state.
+    pub fn get_active_player(&self) -> Result<Rc<Player>, String> {
+        let player: Rc<Player> = match self.int_operand() {
+            0 => self.active_player.clone(),
+            _ => self.active_player2.clone(),
+        };
+        if player.is_null() {
+            return Err(String::from("Attempt to access null active_player"));
+        }
+        return Ok(player);
+    }
+
+    /// Sets the active player in the script state based on the current operand.
+    ///
+    /// This method updates either `active_player` or `active_player2` based on the result of `self.int_operand()`.
+    /// If the operand is `0`, `active_player` is set; otherwise, `active_player2` is set.
+    ///
+    /// # Parameters
+    ///
+    /// - `player`: An `i32` representing the player ID to be set as the active player.
+    ///
+    /// # Panics
+    ///
+    /// This function does not panic.
+    ///
+    /// # Side Effects
+    ///
+    /// - Modifies the internal state of the `ScriptState` by setting either `active_player` or `active_player2`
+    ///   depending on the operand value.
+    pub fn set_active_player(&mut self, player: Player) {
+        match self.int_operand() {
+            0 => self.active_player = Rc::new(player),
+            _ => self.active_player2 = Rc::new(player),
+        }
+    }
+
+    pub fn get_active_npc(&self) -> Result<Rc<Npc>, String> {
+        let npc: Rc<Npc> = match self.int_operand() {
+            0 => self.active_npc.clone(),
+            _ => self.active_npc2.clone(),
+        };
+        if npc.is_null() {
+            return Err(String::from("Attempt to access null active_npc"));
+        }
+        return Ok(npc);
+    }
+
+    pub fn set_active_npc(&mut self, npc: Npc) {
+        match self.int_operand() {
+            0 => self.active_npc = Rc::new(npc),
+            _ => self.active_npc2 = Rc::new(npc),
+        }
+    }
+
+    pub fn get_active_obj(&self) -> Result<Rc<Obj>, String> {
+        let npc: Rc<Obj> = match self.int_operand() {
+            0 => self.active_obj.clone(),
+            _ => self.active_obj2.clone(),
+        };
+        if npc.is_null() {
+            return Err(String::from("Attempt to access null active_obj"));
+        }
+        return Ok(npc);
+    }
+
+    pub fn set_active_obj(&mut self, obj: Obj) {
+        match self.int_operand() {
+            0 => self.active_obj = Rc::new(obj),
+            _ => self.active_obj2 = Rc::new(obj),
+        }
+    }
+
+    pub fn get_script(&self) -> &ScriptFile {
+        return &self.script;
+    }
+
+    pub fn get_switch_table(
+        &self,
+        key: i32,
+        switch: usize,
+    ) -> Result<Option<i32>, serde_wasm_bindgen::Error> {
+        let switch_table: JsValue = self.script.switch_table.get(&JsValue::from(key));
+        let table: HashMap<usize, i32> = serde_wasm_bindgen::from_value(switch_table)?;
+        return Ok(table.get(&switch).copied());
+    }
+
+    pub fn get_fp(&self) -> usize {
+        return self.fp;
+    }
+
+    pub fn get_isp(&self) -> usize {
+        return self.isp;
+    }
+
+    pub fn set_isp(&mut self, isp: usize) {
+        self.isp = isp;
+    }
+
+    pub fn get_ssp(&self) -> usize {
+        return self.ssp;
+    }
+
+    pub fn set_ssp(&mut self, ssp: usize) {
+        self.ssp = ssp;
+    }
+
+    pub fn get_int_locals(&mut self) -> &mut Vec<i32> {
+        return &mut self.int_locals;
+    }
+
+    pub fn opcodes(&self) -> &Vec<u16> {
+        return &self.script.codes;
+    }
+
+    pub fn script_line_number(&self, pc: isize) -> i32 {
+        for i in 0..self.script.info.pcs.len() {
+            if self.script.info.pcs[i] > pc as i32 {
+                return self.script.info.lines[i.saturating_sub(1)];
+            }
+        }
+        return *self.script.info.lines.last().unwrap_or(&0);
+    }
+}
+
+#[wasm_bindgen]
+impl ScriptState {
+    /// Creates a new `ScriptState` instance with specified `i32` and `String` arguments.
+    ///
+    /// This method initializes a `ScriptState` for a given `ScriptFile` and sets up local
+    /// variables based on the provided `i32` and `String` arguments. It allocates space for
+    /// local variables and populates them with the arguments supplied.
+    ///
+    /// # Parameters
+    ///
+    /// - `script`: A reference to the `ScriptFile` to execute.
+    /// - `int_args`: A vector of `i32` representing integer arguments for the script.
+    /// - `string_args`: A vector of `String` representing string arguments for the script.
+    ///
+    /// # Return
+    ///
+    /// Returns a new instance of `ScriptState` initialized with the provided arguments.
+    ///
+    /// # Safety
+    ///
+    /// This function assumes that the `ScriptFile` provided has valid local counts for
+    /// integer and string variables. If the `script` is improperly initialized, it may cause
+    /// undefined behavior.
+    #[rustfmt::skip]
+    #[wasm_bindgen(constructor)]
+    pub fn new(
+        script: &ScriptFile,
+        int_args: Vec<i32>,
+        string_args: Vec<String>,
+    ) -> ScriptState {
+        let mut int_locals: Vec<i32> = vec![0; script.int_local_count as usize];
+        let mut string_locals: Vec<String> = vec![String::new(); script.string_local_count as usize];
+
+        int_locals[..int_args.len()].copy_from_slice(&int_args);
+        string_locals[..string_args.len()].clone_from_slice(&string_args);
+
+        let trigger: u8 = script.lookup() as u8 & 0xff;
+
+        return ScriptState {
+            script: script.clone(),
+            execution_state: ScriptExecutionState::Running,
+            pc: -1,
+            opcount: 0,
+            frame_stack: Vec::with_capacity(50),
+            fp: 0,
+            goto_frame_stack: Vec::with_capacity(50),
+            goto_fp: 0,
+            int_stack: [0; 1000],
+            isp: 0,
+            string_stack: vec![String::new(); 1000],
+            ssp: 0,
+            int_locals,
+            string_locals,
+            pointers: 0,
+            trigger,
+            _self: JsValue::NULL,
+            active_player: Rc::new(Player::from(JsValue::NULL)),
+            active_player2: Rc::new(Player::from(JsValue::NULL)),
+            active_npc: Rc::new(Npc::from(JsValue::NULL)),
+            active_npc2: Rc::new(Npc::from(JsValue::NULL)),
+            active_loc: Rc::new(Loc::from(JsValue::NULL)),
+            active_loc2: Rc::new(Loc::from(JsValue::NULL)),
+            active_obj: Rc::new(Obj::from(JsValue::NULL)),
+            active_obj2: Rc::new(Obj::from(JsValue::NULL)),
+            last_int: 0,
+            error: String::new(),
+        }
+    }
+
+    #[inline(always)]
+    #[wasm_bindgen(method, js_name = intOperand)]
+    pub fn int_operand(&self) -> usize {
+        return unsafe { *self.script.int_operands.as_ptr().add(self.pc as usize) };
+    }
+
+    /// Pushes an `i32` value onto the integer stack.
+    ///
+    /// This method places the provided integer value at the current integer stack pointer
+    /// and then increments the pointer. It assumes that there is sufficient space on the stack.
+    /// When a `ScriptState` is created, it allocates the string stack with a capacity of 1000.
+    ///
+    /// # Parameters
+    ///
+    /// - `value`: The `i32` value to push onto the integer stack.
+    #[inline(always)]
+    #[wasm_bindgen(method, js_name = pushInt)]
+    pub fn push_int(&mut self, value: i32) {
+        unsafe { *self.int_stack.as_mut_ptr().add(self.isp) = value };
+        self.isp += 1;
+    }
+
+    /// Pops the top integer value from the integer stack.
+    ///
+    /// This method decreases the integer stack pointer and retrieves the integer at the new top
+    /// of the stack. The caller should ensure there are values on the stack.
+    ///
+    /// # Return
+    ///
+    /// Returns the top integer value as an `i32`.
+    #[inline(always)]
+    #[wasm_bindgen(method, js_name = popInt)]
+    pub fn pop_int(&mut self) -> i32 {
+        self.isp -= 1;
+        return unsafe { *self.int_stack.as_ptr().add(self.isp) };
+    }
+
+    // ---- strings
+
+    #[inline(always)]
+    #[wasm_bindgen(method, js_name = stringOperand)]
+    pub fn string_operand(&self) -> String {
+        return self.script.string_operands[self.pc as usize].clone();
+    }
+
+    /// Pushes a `String` value onto the string stack.
+    ///
+    /// This method places the provided string value at the current string stack pointer
+    /// and then increments the pointer. It assumes that there is sufficient space on the stack.
+    /// When a `ScriptState` is created, it allocates the string stack with a capacity of 1000.
+    ///
+    /// # Parameters
+    ///
+    /// - `value`: The `String` value to push onto the string stack.
+    #[inline(always)]
+    #[wasm_bindgen(method, js_name = pushString)]
+    pub fn push_string(&mut self, value: String) {
+        self.string_stack[self.ssp] = value;
+        self.ssp += 1;
+    }
+
+    /// Pops the top string value from the string stack.
+    ///
+    /// This method decreases the string stack pointer and retrieves the string at the new top
+    /// of the stack. IThe caller should ensure there are values on the stack.
+    ///
+    /// # Return
+    ///
+    /// Returns the top string value as a `String`.
+    #[inline(always)]
+    #[wasm_bindgen(method, js_name = popString)]
+    pub fn pop_string(&mut self) -> String {
+        self.ssp -= 1;
+        return self.string_stack[self.ssp].clone();
+    }
+
     // ---- pointers
 
     /// Adds a specified pointer to the internal pointer state.
@@ -972,6 +1549,7 @@ impl ScriptState {
     ///
     /// - Updates the internal `pointers` state to include the new pointer.
     #[inline(always)]
+    #[wasm_bindgen(method, js_name = pointerAdd)]
     pub fn pointer_add(&mut self, pointer: ScriptPointer) {
         self.pointers |= 1 << pointer as i32;
     }
@@ -1003,6 +1581,7 @@ impl ScriptState {
     ///
     /// - Updates the internal `pointers` state to exclude the specified pointer.
     #[inline(always)]
+    #[wasm_bindgen(method, js_name = pointerRemove)]
     pub fn pointer_remove(&mut self, pointer: ScriptPointer) {
         self.pointers &= !(1 << pointer as i32);
     }
@@ -1033,6 +1612,7 @@ impl ScriptState {
     ///
     /// - This function does not modify the internal state.
     #[inline(always)]
+    #[wasm_bindgen(method, js_name = pointerGet)]
     pub fn pointer_get(&self, pointer: ScriptPointer) -> bool {
         return (self.pointers & (1 << pointer as i32)) != 0;
     }
@@ -1065,6 +1645,7 @@ impl ScriptState {
     ///
     /// - This function may panic and terminate the execution if required pointers are not found.
     #[inline(always)]
+    #[wasm_bindgen(method, js_name = pointerCheck)]
     pub fn pointer_check(&self, pointer: ScriptPointer) -> bool {
         let flag: i32 = 1 << pointer as i32;
         return self.pointers & flag == flag;
@@ -1111,103 +1692,158 @@ impl ScriptState {
         return text;
     }
 
-    // testing purposes.
-    pub fn pointer_debug(&self) -> String {
-        return self.pointer_print(self.pointers);
-    }
-
-    /// Protects the execution flow based on pointer validation and executes a callback on success.
-    ///
-    /// This method checks if the script state contains the required pointer based on the current operand.
-    /// If the pointer is valid, the provided `on_success` callback is executed with the script state.
-    /// Otherwise, an error is returned detailing the missing pointer.
-    ///
-    /// # Parameters
-    ///
-    /// - `pointers`: A slice of `ScriptPointer` values representing valid pointers for the current state.
-    /// - `on_success`: A closure that is executed if the required pointer is valid. It receives a mutable reference
-    ///   to the current `ScriptState` and returns a `Result<(), String>`.
-    ///
-    /// # Return
-    ///
-    /// Returns `Ok(())` if the pointer check succeeds and the `on_success` closure executes successfully.
-    /// If the pointer is invalid or the closure returns an error, a `Result::Err` with a descriptive error message is returned.
-    ///
-    /// # Panics
-    ///
-    /// This function does not panic, but it assumes that `pointers` has valid indices, which depends on the
-    /// operand value returned by `self.int_operand()`. Out-of-bounds indexing on `pointers` will result in a panic.
-    ///
-    /// # Side Effects
-    ///
-    /// - The state may be modified by the `on_success` closure. The closure has full access to the mutable state.
-    /// - The method does not alter any state if the pointer check fails or if an error is returned.
-    // pub fn protect<F>(&mut self, pointers: &[ScriptPointer], on_success: F) -> Result<(), String>
-    // where
-    //     F: FnOnce(&mut ScriptState) -> Result<(), String>,
-    // {
-    //     let pointer: ScriptPointer = pointers[self.int_operand() as usize];
-    //     if self.pointer_check(pointer) {
-    //         return on_success(self);
-    //     }
-    //     return Err(format!(
-    //         "Required pointer: {}, current: {}",
-    //         self.pointer_print(1 << pointer as i32),
-    //         self.pointer_print(self.pointers)
-    //     ));
-    // }
-
-    /// Retrieves the active player from the script state based on the current operand.
-    ///
-    /// This method returns either `active_player` or `active_player2` based on the result of `self.int_operand()`.
-    /// If the operand is `0`, `active_player` is returned; otherwise, `active_player2` is returned.
-    ///
-    /// # Return
-    ///
-    /// Returns an `i32` representing the ID of the active player, which can be either `active_player` or `active_player2`
-    /// depending on the operand value.
-    ///
-    /// # Panics
-    ///
-    /// This function does not panic.
-    ///
-    /// # Side Effects
-    ///
-    /// - This function does not modify the internal state; it only reads the current state.
-    pub fn get_active_player(&self) -> Rc<Player> {
-        return self.active_player.clone();
-    }
-
-    /// Sets the active player in the script state based on the current operand.
-    ///
-    /// This method updates either `active_player` or `active_player2` based on the result of `self.int_operand()`.
-    /// If the operand is `0`, `active_player` is set; otherwise, `active_player2` is set.
-    ///
-    /// # Parameters
-    ///
-    /// - `player`: An `i32` representing the player ID to be set as the active player.
-    ///
-    /// # Panics
-    ///
-    /// This function does not panic.
-    ///
-    /// # Side Effects
-    ///
-    /// - Modifies the internal state of the `ScriptState` by setting either `active_player` or `active_player2`
-    ///   depending on the operand value.
-    pub fn set_active_player(&mut self, player: Player) {
-        self.active_player = Rc::new(player);
-    }
-
-    pub fn active_player(&self) -> ScriptPointer {
-        return [ScriptPointer::ActivePlayer, ScriptPointer::ActivePlayer2][0];
-    }
-
+    #[inline(always)]
+    #[wasm_bindgen(method, getter = execution)]
     pub fn get_execution_state(&self) -> ScriptExecutionState {
         return self.execution_state;
     }
 
+    #[inline(always)]
+    #[wasm_bindgen(method, setter = execution)]
     pub fn set_execution_state(&mut self, state: ScriptExecutionState) {
         self.execution_state = state;
+    }
+
+    #[inline(always)]
+    #[wasm_bindgen(method, getter = error)]
+    pub fn get_error(&self) -> String {
+        return self.error.clone();
+    }
+
+    #[inline(always)]
+    #[wasm_bindgen(method, setter = error)]
+    pub fn set_error(&mut self, error: String) {
+        self.error = error;
+    }
+
+    #[inline(always)]
+    #[wasm_bindgen(method, setter = self)]
+    pub fn set_self(&mut self, _self: JsValue) {
+        self._self = _self;
+    }
+
+    #[inline(always)]
+    #[wasm_bindgen(method, setter = _activePlayer)]
+    pub fn set_active_player1(&mut self, player: Player) {
+        self.active_player = Rc::new(player);
+    }
+
+    #[inline(always)]
+    #[wasm_bindgen(method, setter = _activePlayer2)]
+    pub fn set_active_player2(&mut self, player: Player) {
+        self.active_player2 = Rc::new(player);
+    }
+
+    #[inline(always)]
+    #[wasm_bindgen(method, setter = activePlayerScript)]
+    pub fn set_active_player_script(&mut self, state: ScriptState) {
+        if let Ok(player) = self.get_active_player() {
+            player.active_script(state);
+        }
+    }
+
+    #[inline(always)]
+    #[wasm_bindgen(method, setter = activePlayerProtect)]
+    pub fn set_active_player_protect(&mut self, protect: bool) {
+        if let Ok(player) = self.get_active_player() {
+            player.protect(protect);
+        }
+    }
+
+    #[inline(always)]
+    #[wasm_bindgen(method, setter = _activeNpc)]
+    pub fn set_active_npc1(&mut self, npc: Npc) {
+        self.active_npc = Rc::new(npc);
+    }
+
+    #[inline(always)]
+    #[wasm_bindgen(method, setter = _activeNpc2)]
+    pub fn set_active_npc2(&mut self, npc: Npc) {
+        self.active_npc2 = Rc::new(npc);
+    }
+
+    #[inline(always)]
+    #[wasm_bindgen(method, setter = activeNpcScript)]
+    pub fn set_active_npc_script(&mut self, state: ScriptState) {
+        if let Ok(npc) = self.get_active_npc() {
+            npc.active_script(state);
+        }
+    }
+
+    #[inline(always)]
+    #[wasm_bindgen(method, setter = _activeLoc)]
+    pub fn set_active_loc1(&mut self, loc: Loc) {
+        self.active_loc = Rc::new(loc);
+    }
+
+    #[inline(always)]
+    #[wasm_bindgen(method, setter = _activeLoc2)]
+    pub fn set_active_loc2(&mut self, loc: Loc) {
+        self.active_loc2 = Rc::new(loc);
+    }
+
+    #[inline(always)]
+    #[wasm_bindgen(method, setter = _activeObj)]
+    pub fn set_active_obj1(&mut self, obj: Obj) {
+        self.active_obj = Rc::new(obj);
+    }
+
+    #[inline(always)]
+    #[wasm_bindgen(method, setter = _activeObj2)]
+    pub fn set_active_obj2(&mut self, obj: Obj) {
+        self.active_obj2 = Rc::new(obj);
+    }
+
+    #[inline(always)]
+    #[wasm_bindgen(method, getter = pc)]
+    pub fn get_pc(&self) -> isize {
+        return self.pc;
+    }
+
+    #[inline(always)]
+    #[wasm_bindgen(method, setter = pc)]
+    pub fn set_pc(&mut self, pc: isize) {
+        self.pc = pc;
+    }
+
+    #[inline(always)]
+    #[wasm_bindgen(method, getter = opcount)]
+    pub fn get_opcount(&self) -> i32 {
+        return self.opcount;
+    }
+
+    #[inline(always)]
+    #[wasm_bindgen(method, setter = opcount)]
+    pub fn set_opcount(&mut self, opcount: i32) {
+        self.opcount = opcount;
+    }
+
+    #[inline(always)]
+    #[wasm_bindgen(method, setter = lastInt)]
+    pub fn set_last_int(&mut self, last_int: i32) {
+        self.last_int = last_int;
+    }
+
+    #[inline(always)]
+    #[wasm_bindgen(method, getter = scriptName)]
+    pub fn get_script_name(&self) -> String {
+        return self.script.name();
+    }
+
+    #[inline(always)]
+    #[wasm_bindgen(method, getter = scriptFileName)]
+    pub fn get_script_file_name(&self) -> String {
+        return self
+            .script
+            .info
+            .path
+            .clone()
+            .split('/')
+            .last()
+            .unwrap()
+            .split('\\')
+            .last()
+            .map(String::from)
+            .unwrap();
     }
 }

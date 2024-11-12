@@ -171,7 +171,7 @@ export default class ScriptProvider {
         const info: ScriptInfo = new ScriptInfo(name, path, lookup, params, pcs, lines);
 
         const codes: Uint16Array = new Uint16Array(instructions);
-        const intOperands: Int32Array = new Int32Array(instructions);
+        const intOperands: Uint32Array = new Uint32Array(instructions);
         const stringOperands: Array<string> = new Array(instructions);
 
         let pc: number = 0;

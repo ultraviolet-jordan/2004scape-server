@@ -7,11 +7,9 @@ import SeqType from '#lostcity/cache/config/SeqType.js';
 import World from '#lostcity/engine/World.js';
 import {Direction, CoordGrid} from '#lostcity/engine/CoordGrid.js';
 
-import { ScriptFile } from '../../../runescript-runtime/dist/runescript-runtime.js';
-import ScriptPointer from '#lostcity/engine/script/ScriptPointer.js';
+import { ScriptFile, ScriptState, ScriptExecutionState, ScriptPointer } from '../../../runescript-runtime/dist/runescript-runtime.js';
 import ScriptProvider from '#lostcity/engine/script/ScriptProvider.js';
 import ScriptRunner from '#lostcity/engine/script/ScriptRunner.js';
-import ScriptState from '#lostcity/engine/script/ScriptState.js';
 import ServerTriggerType from '#lostcity/engine/script/ServerTriggerType.js';
 import {HuntIterator} from '#lostcity/engine/script/ScriptIterators.js';
 
@@ -310,31 +308,27 @@ export default class Npc extends PathingEntity {
     }
 
     executeScript(script: ScriptState) {
-        if (!script) {
-            return;
-        }
-
-        const state = ScriptRunner.execute(script);
-        if (state !== ScriptState.FINISHED && state !== ScriptState.ABORTED) {
-            if (state === ScriptState.WORLD_SUSPENDED) {
+        const state: ScriptExecutionState = ScriptRunner.execute(script);
+        if (state !== ScriptExecutionState.Finished && state !== ScriptExecutionState.Aborted) {
+            if (state === ScriptExecutionState.WorldSuspended) {
                 World.enqueueScript(script, script.popInt());
-            } else if (state === ScriptState.NPC_SUSPENDED) {
-                script.activeNpc.activeScript = script;
+            } else if (state === ScriptExecutionState.NpcSuspended) {
+                script.activeNpcScript = script;
             } else {
-                script.activePlayer.activeScript = script;
+                script.activePlayerScript = script;
+            }
+            if (script.pointerGet(ScriptPointer.ProtectedActivePlayer) && script._activePlayer) {
+                script._activePlayer.protect = false;
+                script.pointerRemove(ScriptPointer.ProtectedActivePlayer);
+            }
+
+            if (script.pointerGet(ScriptPointer.ProtectedActivePlayer2) && script._activePlayer2) {
+                script._activePlayer2.protect = false;
+                script.pointerRemove(ScriptPointer.ProtectedActivePlayer2);
             }
         } else if (script === this.activeScript) {
+            console.log('freed - npc');
             this.activeScript = null;
-        }
-
-        if (script.pointerGet(ScriptPointer.ProtectedActivePlayer) && script._activePlayer) {
-            script._activePlayer.protect = false;
-            script.pointerRemove(ScriptPointer.ProtectedActivePlayer);
-        }
-
-        if (script.pointerGet(ScriptPointer.ProtectedActivePlayer2) && script._activePlayer2) {
-            script._activePlayer2.protect = false;
-            script.pointerRemove(ScriptPointer.ProtectedActivePlayer2);
         }
     }
 

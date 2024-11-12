@@ -1,31 +1,118 @@
-use wasm_bindgen::JsValue;
+use crate::bits::Bits;
+use crate::core_ops::CoreOps;
+use crate::debug_ops::DebugOps;
+use crate::math_ops::MathOps;
+use crate::obj_ops::{Obj, ObjOps};
+use crate::player_ops::{Player, PlayerOps};
+use crate::script::{ScriptExecutionState, ScriptFile, ScriptOpcode, ScriptState};
+use crate::server_ops::ServerOps;
+use crate::string_ops::StringOps;
+use crate::trig::Trig;
+use once_cell::sync::Lazy;
+use std::ptr::addr_of;
 use wasm_bindgen::prelude::wasm_bindgen;
-use crate::player_ops::{find_uid};
-use crate::script::{ScriptExecutionState, ScriptOpcode, ScriptState};
+use wasm_bindgen::JsValue;
 
-pub mod script;
-pub mod player_ops;
+mod bits;
+mod coord_grid;
+mod core_ops;
+mod debug_ops;
+mod loc_ops;
+mod math_ops;
+mod npc_ops;
+mod obj_ops;
+mod player_ops;
+mod script;
+mod server_ops;
+mod string_ops;
+mod trig;
+
+static TRIG: Lazy<Trig> = Lazy::new(Trig::new);
+static BITS: Lazy<Bits> = Lazy::new(Bits::new);
+static CORE_OPS: Lazy<CoreOps> = Lazy::new(CoreOps::new);
+static MATH_OPS: Lazy<MathOps> = Lazy::new(MathOps::new);
 
 #[wasm_bindgen]
-extern {
-    pub fn engine_find_uid(uid: i32) -> JsValue;
+extern "C" {
+    pub type Engine;
+
+    #[wasm_bindgen(method, js_name = getPlayerByUid)]
+    pub fn get_player_by_uid(this: &Engine, uid: i32) -> Option<Player>;
+
+    #[wasm_bindgen(method, js_name = getScript)]
+    pub fn get_script(this: &Engine, script: usize) -> Option<ScriptFile>;
+
+    #[wasm_bindgen(method, js_name = isProduction)]
+    pub fn map_production(this: &Engine) -> bool;
+
+    #[wasm_bindgen(method, js_name = objAddAll)]
+    pub fn obj_addall(this: &Engine, coord: i32, id: i32, count: i32, duration: i32)
+        -> Option<Obj>;
 
     #[wasm_bindgen(js_namespace = console)]
     fn log(s: &str);
 }
 
 #[wasm_bindgen]
-pub fn execute(state: &mut ScriptState, code: ScriptOpcode) -> ScriptExecutionState {
-    if let Err(_) = push_script(state, code) {
-        state.set_execution_state(ScriptExecutionState::Aborted);
+impl ScriptState {
+    pub fn execute(&mut self, engine: &Engine) {
+        self.set_execution_state(ScriptExecutionState::Running);
+        while self.get_execution_state() == ScriptExecutionState::Running {
+            let pc: isize = self.get_pc();
+            let opcount: i32 = self.get_opcount();
+            let codes: &Vec<u16> = self.opcodes();
+            let len: usize = codes.len();
+            if pc >= len as isize || pc < -1 {
+                throw_error(
+                    self,
+                    format!("Invalid program counter: {}, max expected: {}", pc, len).as_str(),
+                );
+                return;
+            }
+            if opcount > 500_000 {
+                throw_error(self, "Too many instructions!");
+                return;
+            }
+            let pc: isize = self.get_pc() + 1;
+            let code: u16 = codes[pc as usize];
+            self.set_opcount(opcount + 1);
+            self.set_pc(pc);
+            if let Err(error) = unsafe { push_script(engine, self, ScriptOpcode::from(code)) } {
+                throw_error(self, error.as_str());
+                return;
+            }
+        }
     }
-    return state.get_execution_state();
 }
 
-#[wasm_bindgen]
-pub fn push_script(state: &mut ScriptState, code: ScriptOpcode) -> Result<(), String> {
+pub fn throw_error(state: &mut ScriptState, message: &str) {
+    let file_name = state.get_script_file_name();
+    let script_name = state.get_script_name();
+    let line_number = state.script_line_number(state.get_pc());
+
+    state.set_execution_state(ScriptExecutionState::Aborted);
+    state.set_error(format!(
+        r#"
+        script error: {message}
+        file: {file_name}
+
+        1. {name} - {file_name}:{line}
+        "#,
+        message = message,
+        file_name = file_name,
+        name = script_name,
+        line = line_number
+    ));
+}
+
+pub unsafe fn push_script(
+    engine: &Engine,
+    state: &mut ScriptState,
+    code: ScriptOpcode,
+) -> Result<(), String> {
     // info!("{:?}", code);
     // log(format!("{:?}", code).as_str());
+    // log(format!("{:?}", state.get_script().name()).as_str());
     match code {
         // Core language ops (0-99)
         ScriptOpcode::PushConstantInt
@@ -63,7 +150,7 @@ pub fn push_script(state: &mut ScriptState, code: ScriptOpcode) -> Result<(), St
         | ScriptOpcode::DefineArray
         | ScriptOpcode::PushArrayInt
         | ScriptOpcode::PopArrayInt
-        | ScriptOpcode::EndCoreOps => Ok(()),
+        | ScriptOpcode::EndCoreOps => CORE_OPS.push(engine, state, code),
         // Server ops (1000-1999)
         ScriptOpcode::CoordX
         | ScriptOpcode::CoordY
@@ -100,7 +187,7 @@ pub fn push_script(state: &mut ScriptState, code: ScriptOpcode) -> Result<(), St
         | ScriptOpcode::ZonesCount
         | ScriptOpcode::LocsCount
         | ScriptOpcode::ObjsCount
-        | ScriptOpcode::MapMulti => Ok(()),
+        | ScriptOpcode::MapMulti => ServerOps::new().push(engine, state, code),
         // Player ops (2000-2499)
         ScriptOpcode::AllowDesign
         | ScriptOpcode::Anim
@@ -224,7 +311,7 @@ pub fn push_script(state: &mut ScriptState, code: ScriptOpcode) -> Result<(), St
         | ScriptOpcode::PAnimProtect
         | ScriptOpcode::RunEnergy
         | ScriptOpcode::Weight
-        | ScriptOpcode::LastCoord => find_uid(state),
+        | ScriptOpcode::LastCoord => PlayerOps::new().push(engine, state, code),
         // Npc ops (2500-2999)
         ScriptOpcode::NpcAdd
         | ScriptOpcode::NpcAnim
@@ -269,7 +356,7 @@ pub fn push_script(state: &mut ScriptState, code: ScriptOpcode) -> Result<(), St
         | ScriptOpcode::NpcWalk
         | ScriptOpcode::NpcAttackRange
         | ScriptOpcode::NpcHasOp
-        | ScriptOpcode::NpcArriveDelay => Err("Not implemented".to_string()),
+        | ScriptOpcode::NpcArriveDelay => Err(format!("Unimplemented! {:?}", code)),
         // Loc ops (3000-3499)
         ScriptOpcode::LocAdd
         | ScriptOpcode::LocAngle
@@ -284,7 +371,7 @@ pub fn push_script(state: &mut ScriptState, code: ScriptOpcode) -> Result<(), St
         | ScriptOpcode::LocName
         | ScriptOpcode::LocParam
         | ScriptOpcode::LocShape
-        | ScriptOpcode::LocType => Err("Not implemented".to_string()),
+        | ScriptOpcode::LocType => Err(format!("Unimplemented! {:?}", code)),
         // Obj ops (3500-4000)
         ScriptOpcode::ObjAdd
         | ScriptOpcode::ObjAddAll
@@ -295,14 +382,14 @@ pub fn push_script(state: &mut ScriptState, code: ScriptOpcode) -> Result<(), St
         | ScriptOpcode::ObjParam
         | ScriptOpcode::ObjTakeItem
         | ScriptOpcode::ObjType
-        | ScriptOpcode::ObjFind => Err("Not implemented".to_string()),
+        | ScriptOpcode::ObjFind => ObjOps::new().push(engine, state, code),
         // Npc config ops (4000-4099)
         ScriptOpcode::NcCategory
         | ScriptOpcode::NcDebugname
         | ScriptOpcode::NcDesc
         | ScriptOpcode::NcName
         | ScriptOpcode::NcOp
-        | ScriptOpcode::NcParam => Err("Not implemented".to_string()),
+        | ScriptOpcode::NcParam => Err(format!("Unimplemented! {:?}", code)),
         // Loc config ops (4100-4199)
         ScriptOpcode::LcCategory
         | ScriptOpcode::LcDebugname
@@ -311,7 +398,7 @@ pub fn push_script(state: &mut ScriptState, code: ScriptOpcode) -> Result<(), St
         | ScriptOpcode::LcOp
         | ScriptOpcode::LcParam
         | ScriptOpcode::LcWidth
-        | ScriptOpcode::LcLength => Err("Not implemented".to_string()),
+        | ScriptOpcode::LcLength => Err(format!("Unimplemented! {:?}", code)),
         // Obj config ops (4200-4299)
         ScriptOpcode::OcCategory
         | ScriptOpcode::OcCert
@@ -329,7 +416,7 @@ pub fn push_script(state: &mut ScriptState, code: ScriptOpcode) -> Result<(), St
         | ScriptOpcode::OcWearPos2
         | ScriptOpcode::OcWearPos3
         | ScriptOpcode::OcWearPos
-        | ScriptOpcode::OcWeight => Ok(()),
+        | ScriptOpcode::OcWeight => Err(format!("Unimplemented! {:?}", code)),
         // Inventory ops (4300-4399)
         ScriptOpcode::InvAllStock
         | ScriptOpcode::InvSize
@@ -361,10 +448,10 @@ pub fn push_script(state: &mut ScriptState, code: ScriptOpcode) -> Result<(), St
         | ScriptOpcode::BothDropSlot
         | ScriptOpcode::InvDropAll
         | ScriptOpcode::InvTotalParam
-        | ScriptOpcode::InvTotalParamStack => Err("Not implemented".to_string()),
+        | ScriptOpcode::InvTotalParamStack => Err(format!("Unimplemented! {:?}", code)),
         // Enum ops (4400-4499)
         ScriptOpcode::Enum | ScriptOpcode::EnumGetOutputCount => {
-            Err("Not implemented".to_string())
+            Err(format!("Unimplemented! {:?}", code))
         }
         // String ops (4500-4599)
         ScriptOpcode::AppendNum
@@ -379,7 +466,7 @@ pub fn push_script(state: &mut ScriptState, code: ScriptOpcode) -> Result<(), St
         | ScriptOpcode::StringLength
         | ScriptOpcode::SubString
         | ScriptOpcode::StringIndexOfChar
-        | ScriptOpcode::StringIndexOfString => Ok(()),
+        | ScriptOpcode::StringIndexOfString => StringOps::new().push(state, code),
         // Number ops (4600-4699)
         ScriptOpcode::Add
         | ScriptOpcode::Sub
@@ -409,7 +496,7 @@ pub fn push_script(state: &mut ScriptState, code: ScriptOpcode) -> Result<(), St
         | ScriptOpcode::SinDeg
         | ScriptOpcode::CosDeg
         | ScriptOpcode::Atan2Deg
-        | ScriptOpcode::Abs => Ok(()),
+        | ScriptOpcode::Abs => MATH_OPS.push(state, code, &**addr_of!(TRIG), &**addr_of!(BITS)),
         // DB ops (7500-7599)
         ScriptOpcode::DbFindWithCount
         | ScriptOpcode::DbFindNext
@@ -421,7 +508,7 @@ pub fn push_script(state: &mut ScriptState, code: ScriptOpcode) -> Result<(), St
         | ScriptOpcode::DbFindRefineWithCount
         | ScriptOpcode::DbFind
         | ScriptOpcode::DbFindRefine
-        | ScriptOpcode::DbListAll => Err("Not implemented".to_string()),
+        | ScriptOpcode::DbListAll => Err(format!("Unimplemented! {:?}", code)),
         // Debug ops (10000-11000)
         ScriptOpcode::Error
         | ScriptOpcode::MapProduction
@@ -436,6 +523,6 @@ pub fn push_script(state: &mut ScriptState, code: ScriptOpcode) -> Result<(), St
         | ScriptOpcode::MapLastClientOut
         | ScriptOpcode::MapLastCleanup
         | ScriptOpcode::MapLastBandwidthIn
-        | ScriptOpcode::MapLastBandwidthOut => Err("Not implemented".to_string()),
+        | ScriptOpcode::MapLastBandwidthOut => DebugOps::new().push(engine, state, code),
     }
 }

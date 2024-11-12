@@ -143,7 +143,7 @@ export class NetworkPlayer extends Player {
         }
         const prot: ServerProt = encoder.prot;
         const buf = client.out;
-        const test = (1 + (prot.length === -1 ? 1 : prot.length === -2 ? 2 : 0)) + encoder.test(message);
+        const test = 1 + (prot.length === -1 ? 1 : prot.length === -2 ? 2 : 0) + encoder.test(message);
         if (buf.pos + test >= buf.length) {
             client.flush();
         }
@@ -247,18 +247,18 @@ export class NetworkPlayer extends Player {
             }
         }
 
-        const mapZone = CoordGrid.packCoord(0, this.x >> 6 << 6, this.z >> 6 << 6);
+        const mapZone = CoordGrid.packCoord(0, (this.x >> 6) << 6, (this.z >> 6) << 6);
         if (this.lastMapZone !== mapZone) {
             if (this.lastMapZone !== -1) {
                 const { x, z } = CoordGrid.unpackCoord(this.lastMapZone);
                 this.triggerMapzoneExit(x, z);
             }
 
-            this.triggerMapzone(this.x >> 6 << 6, this.z >> 6 << 6);
+            this.triggerMapzone((this.x >> 6) << 6, (this.z >> 6) << 6);
             this.lastMapZone = mapZone;
         }
 
-        const zone = CoordGrid.packCoord(this.level, this.x >> 3 << 3, this.z >> 3 << 3);
+        const zone = CoordGrid.packCoord(this.level, (this.x >> 3) << 3, (this.z >> 3) << 3);
         if (this.lastZone !== zone) {
             const lastWasMulti = World.gameMap.isMulti(this.lastZone);
             const nowIsMulti = World.gameMap.isMulti(zone);
@@ -271,31 +271,17 @@ export class NetworkPlayer extends Player {
                 this.triggerZoneExit(level, x, z);
             }
 
-            this.triggerZone(this.level, this.x >> 3 << 3, this.z >> 3 << 3);
+            this.triggerZone(this.level, (this.x >> 3) << 3, (this.z >> 3) << 3);
             this.lastZone = zone;
         }
     }
 
     updatePlayers(renderer: PlayerRenderer) {
-        this.write(new PlayerInfo(
-            World.currentTick,
-            renderer,
-            this,
-            Math.abs(this.lastTickX - this.x),
-            Math.abs(this.lastTickZ - this.z),
-            this.lastLevel !== this.level
-        ));
+        this.write(new PlayerInfo(World.currentTick, renderer, this, Math.abs(this.lastTickX - this.x), Math.abs(this.lastTickZ - this.z), this.lastLevel !== this.level));
     }
 
     updateNpcs(renderer: NpcRenderer) {
-        this.write(new NpcInfo(
-            World.currentTick,
-            renderer,
-            this,
-            Math.abs(this.lastTickX - this.x),
-            Math.abs(this.lastTickZ - this.z),
-            this.lastLevel !== this.level)
-        );
+        this.write(new NpcInfo(World.currentTick, renderer, this, Math.abs(this.lastTickX - this.x), Math.abs(this.lastTickZ - this.z), this.lastLevel !== this.level));
     }
 
     updateZones() {
@@ -396,26 +382,3 @@ export class NetworkPlayer extends Player {
     }
 }
 
-export function isNetworkPlayer(player: Player): player is NetworkPlayer {
-    return (player as NetworkPlayer).client !== null && (player as NetworkPlayer).client !== undefined;
-}
-
-export function isBufferFull(player: Player): boolean {
-    if (!isNetworkPlayer(player)) {
-        return false;
-    }
-
-    let total = 0;
-
-    for (let message: OutgoingMessage | null = player.buffer.head(); message; message = player.buffer.next()) {
-        const encoder: MessageEncoder<OutgoingMessage> | undefined = ServerProtRepository.getEncoder(message);
-        if (!encoder) {
-            return true;
-        }
-
-        const prot: ServerProt = encoder.prot;
-        total += (1 + (prot.length === -1 ? 1 : prot.length === -2 ? 2 : 0)) + encoder.test(message);
-    }
-
-    return total >= 5000;
-}

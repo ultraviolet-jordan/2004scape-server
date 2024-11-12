@@ -6,7 +6,7 @@ import ScriptProvider from '#lostcity/engine/script/ScriptProvider.js';
 import ScriptRunner from '#lostcity/engine/script/ScriptRunner.js';
 import Environment from '#lostcity/util/Environment.js';
 import ServerTriggerType from '#lostcity/engine/script/ServerTriggerType.js';
-import ScriptState from '#lostcity/engine/script/ScriptState.js';
+import { ScriptExecutionState } from '../../../../../../runescript-runtime/dist/runescript-runtime.js';
 
 export default class IfButtonHandler extends MessageHandler<IfButton> {
     handle(message: IfButton, player: Player): boolean {
@@ -20,7 +20,7 @@ export default class IfButtonHandler extends MessageHandler<IfButton> {
         player.lastCom = comId;
 
         if (player.resumeButtons.indexOf(player.lastCom) !== -1) {
-            if (player.activeScript && player.activeScript.execution === ScriptState.PAUSEBUTTON) {
+            if (player.activeScript && player.activeScript.execution === ScriptExecutionState.PauseButton) {
                 player.executeScript(player.activeScript, true, true);
             }
         } else {
