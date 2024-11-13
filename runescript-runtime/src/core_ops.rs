@@ -1,6 +1,6 @@
 use crate::player_ops::Player;
 use crate::script::{ScriptExecutionState, ScriptOpcode, ScriptState};
-use crate::Engine;
+use crate::{log, Engine};
 use wasm_bindgen::prelude::wasm_bindgen;
 use wasm_bindgen::{JsCast, JsValue};
 
@@ -307,9 +307,34 @@ fn push_int_local(state: &mut ScriptState) -> Result<(), String> {
 #[inline(always)]
 fn pop_int_local(state: &mut ScriptState) -> Result<(), String> {
     let operand: usize = state.int_operand();
-    state.get_int_locals()[operand] = state.pop_int();
+    let local = state.pop_int();
+    log(format!(
+        "[pop_int_local] operand: {}, local: {}, locals: {}",
+        operand,
+        local,
+        state.get_int_locals().len()
+    )
+    .as_str());
+    state.get_int_locals()[operand] = local;
     return Ok(());
 }
+
+// #[inline(always)]
+// fn pop_int_local(state: &mut ScriptState) -> Result<(), String> {
+//     let operand: usize = state.int_operand();
+//     let local = state.pop_int();
+//
+//     // Get a mutable reference to the vector of int locals
+//     let int_locals = state.get_int_locals();
+//
+//     // Check if the operand is out of bounds and resize the vector if needed
+//     if operand >= int_locals.len() {
+//         int_locals.resize(operand + 1, 0); // Resizes and fills new slots with 0
+//     }
+//
+//     int_locals[operand] = local;
+//     Ok(())
+// }
 
 #[inline(always)]
 fn push_string_local(_: &mut ScriptState) -> Result<(), String> {
@@ -334,13 +359,13 @@ fn join_string(state: &mut ScriptState) -> Result<(), String> {
 
 #[inline(always)]
 fn pop_int_discard(state: &mut ScriptState) -> Result<(), String> {
-    state.pop_int();
+    state.set_isp(state.get_isp() - 1);
     return Ok(());
 }
 
 #[inline(always)]
 fn pop_string_discard(state: &mut ScriptState) -> Result<(), String> {
-    state.pop_string();
+    state.set_ssp(state.get_ssp() - 1);
     return Ok(());
 }
 

@@ -1,13 +1,8 @@
 import { ScriptArgument } from '#lostcity/entity/EntityQueueRequest.js';
-import { ScriptFile } from '../../../runescript-runtime/dist/runescript-runtime.js';
+import { PlayerTimerType, ScriptFile } from '../../../runescript-runtime/dist/runescript-runtime.js';
 
 export enum NpcTimerType {
     NPC
-}
-
-export enum PlayerTimerType {
-    NORMAL,
-    SOFT
 }
 
 export type TimerType = NpcTimerType | PlayerTimerType;

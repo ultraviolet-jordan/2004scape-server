@@ -14,7 +14,7 @@ import SeqType from '#lostcity/cache/config/SeqType.js';
 import VarPlayerType from '#lostcity/cache/config/VarPlayerType.js';
 
 import BlockWalk from '#lostcity/entity/BlockWalk.js';
-import { EntityTimer, PlayerTimerType } from '#lostcity/entity/EntityTimer.js';
+import { EntityTimer } from '#lostcity/entity/EntityTimer.js';
 import { EntityQueueRequest, PlayerQueueType, QueueType, ScriptArgument } from '#lostcity/entity/EntityQueueRequest.js';
 import Loc from '#lostcity/entity/Loc.js';
 import Npc from '#lostcity/entity/Npc.js';
@@ -31,7 +31,13 @@ import MoveStrategy from '#lostcity/entity/MoveStrategy.js';
 import { Inventory } from '#lostcity/engine/Inventory.js';
 import World from '#lostcity/engine/World.js';
 
-import { ScriptExecutionState, ScriptFile, ScriptPointer, ScriptState } from '../../../runescript-runtime/dist/runescript-runtime.js';
+import {
+    PlayerTimerType,
+    ScriptExecutionState,
+    ScriptFile,
+    ScriptPointer,
+    ScriptState
+} from '../../../runescript-runtime/dist/runescript-runtime.js';
 import ScriptProvider from '#lostcity/engine/script/ScriptProvider.js';
 import ScriptRunner from '#lostcity/engine/script/ScriptRunner.js';
 import ServerTriggerType from '#lostcity/engine/script/ServerTriggerType.js';
@@ -65,7 +71,6 @@ import ParamType from '#lostcity/cache/config/ParamType.js';
 import BuildArea from '#lostcity/entity/BuildArea.js';
 import ChatFilterSettings from '#lostcity/network/outgoing/model/ChatFilterSettings.js';
 import { ChatModePrivate, ChatModePublic, ChatModeTradeDuel } from '#lostcity/util/ChatModes.js';
-// import { isNetworkPlayer } from '#lostcity/entity/NetworkPlayer.js';
 import InfoProt from '#lostcity/network/225/outgoing/prot/InfoProt.js';
 import MessageEncoder from '#lostcity/network/outgoing/codec/MessageEncoder.js';
 import ServerProtRepository from '#lostcity/network/225/outgoing/prot/ServerProtRepository.js';
@@ -757,12 +762,12 @@ export default class Player extends PathingEntity {
 
             // only execute if it's time and able
             // soft timers can execute while busy, normal cannot
-            if (--timer.clock <= 0 && (timer.type === PlayerTimerType.SOFT || this.canAccess())) {
+            if (--timer.clock <= 0 && (timer.type === PlayerTimerType.Soft || this.canAccess())) {
                 // set clock back to interval
                 timer.clock = timer.interval;
 
                 const script = ScriptRunner.init(timer.script, this, null, timer.args);
-                this.executeScript(script, timer.type === PlayerTimerType.NORMAL);
+                this.executeScript(script, timer.type === PlayerTimerType.Normal);
             }
         }
     }

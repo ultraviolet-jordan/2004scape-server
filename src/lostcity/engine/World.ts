@@ -43,7 +43,12 @@ import WorldStat from '#lostcity/engine/WorldStat.js';
 
 import ScriptProvider from '#lostcity/engine/script/ScriptProvider.js';
 import ScriptRunner from '#lostcity/engine/script/ScriptRunner.js';
-import { ScriptExecutionState, ScriptPointer, ScriptState } from '../../../runescript-runtime/dist/runescript-runtime.js';
+import {
+    PlayerTimerType,
+    ScriptExecutionState,
+    ScriptPointer,
+    ScriptState
+} from '../../../runescript-runtime/dist/runescript-runtime.js';
 import ServerTriggerType from '#lostcity/engine/script/ServerTriggerType.js';
 import Zone from '#lostcity/engine/zone/Zone.js';
 import PlayerRenderer from '#lostcity/engine/renderer/PlayerRenderer.js';
@@ -59,7 +64,6 @@ import Player, { isNetworkPlayer } from '#lostcity/entity/Player.js';
 import EntityLifeCycle from '#lostcity/entity/EntityLifeCycle.js';
 import { NpcList, PlayerList } from '#lostcity/entity/EntityList.js';
 import { EntityQueueState } from '#lostcity/entity/EntityQueueRequest.js';
-import { PlayerTimerType } from '#lostcity/entity/EntityTimer.js';
 
 import ClientProt from '#lostcity/network/225/incoming/prot/ClientProt.js';
 
@@ -569,6 +573,7 @@ class World {
         } catch (err) {
             if (err instanceof Error) {
                 printError('eep eep cabbage! An unhandled error occurred during the cycle: ' + err.message);
+                printError('eep eep cabbage! An unhandled error occurred during the cycle: ' + err.stack);
             }
 
             printError('Removing all players...');
@@ -804,9 +809,9 @@ class World {
                 // - weak queue
                 player.processQueues();
                 // - timers
-                player.processTimers(PlayerTimerType.NORMAL);
+                player.processTimers(PlayerTimerType.Normal);
                 // - soft timers
-                player.processTimers(PlayerTimerType.SOFT);
+                player.processTimers(PlayerTimerType.Soft);
                 // - engine queue
                 player.processEngineQueue();
                 // - interactions

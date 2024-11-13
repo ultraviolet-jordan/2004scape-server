@@ -1,5 +1,5 @@
 use crate::coord_grid::CoordGrid;
-use crate::script::{ScriptOpcode, ScriptState};
+use crate::script::{ScriptFile, ScriptOpcode, ScriptState};
 use crate::Engine;
 use wasm_bindgen::prelude::wasm_bindgen;
 use wasm_bindgen::{JsCast, JsValue};
@@ -50,6 +50,22 @@ extern "C" {
 
     #[wasm_bindgen(method, js_name = getVar)]
     pub fn get_var(this: &Player, id: u16) -> JsValue;
+
+    #[wasm_bindgen(method, js_name = setTimer)]
+    pub fn set_timer(
+        thi: &Player,
+        timer: PlayerTimerType,
+        script: ScriptFile,
+        args: Vec<JsValue>,
+        interval: i32,
+    );
+}
+
+#[repr(u16)]
+#[wasm_bindgen]
+pub enum PlayerTimerType {
+    Normal,
+    Soft,
 }
 
 #[inline(always)]
@@ -156,7 +172,7 @@ pub fn perform_player_operation(
         ScriptOpcode::Say => Err(format!("Unimplemented! {:?}", code)),
         ScriptOpcode::WalkTrigger => Err(format!("Unimplemented! {:?}", code)),
         ScriptOpcode::SetTimer => Err(format!("Unimplemented! {:?}", code)),
-        ScriptOpcode::SoftTimer => Err(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::SoftTimer => state.protect(&ScriptState::ACTIVE_PLAYER, |state| softtimer(engine, state)),
         ScriptOpcode::SoundSynth => Err(format!("Unimplemented! {:?}", code)),
         ScriptOpcode::SpotAnimPl => Err(format!("Unimplemented! {:?}", code)),
         ScriptOpcode::StaffModLevel => Err(format!("Unimplemented! {:?}", code)),
@@ -242,4 +258,18 @@ fn p_finduid(engine: &Engine, state: &mut ScriptState) -> Result<(), String> {
         state.push_int(0);
         Ok(())
     };
+}
+
+#[inline(always)]
+fn softtimer(engine: &Engine, state: &mut ScriptState) -> Result<(), String> {
+    let args: Vec<JsValue> = state.pop_args()?;
+    let interval: i32 = state.pop_int();
+    let timer_id: i32 = state.pop_int();
+    let script: ScriptFile = engine
+        .get_script(timer_id as usize)
+        .ok_or(format!("Unable to find timer script: {}", timer_id))?;
+    state
+        .get_active_player()?
+        .set_timer(PlayerTimerType::Soft, script, args, interval);
+    return Ok(());
 }

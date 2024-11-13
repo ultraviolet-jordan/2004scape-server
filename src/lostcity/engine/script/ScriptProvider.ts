@@ -172,7 +172,7 @@ export default class ScriptProvider {
 
         const codes: Uint16Array = new Uint16Array(instructions);
         const intOperands: Uint32Array = new Uint32Array(instructions);
-        const stringOperands: Array<string> = new Array(instructions);
+        const stringOperands: Array<string> = new Array(instructions).fill('');
 
         let pc: number = 0;
         while (trailerPos > stream.pos) {

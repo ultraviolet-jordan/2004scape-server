@@ -175,8 +175,8 @@ pub unsafe fn push_script(
     code: ScriptOpcode,
 ) -> Result<(), String> {
     // info!("{:?}", code);
-    // log(format!("{:?}", code).as_str());
-    // log(format!("{:?}", state.get_script().name()).as_str());
+    log(format!("{:?}", code).as_str());
+    log(format!("{:?}", state.get_script().name()).as_str());
     match code {
         // Core language ops (0-99)
         ScriptOpcode::PushConstantInt
