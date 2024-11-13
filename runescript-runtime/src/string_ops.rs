@@ -1,45 +1,21 @@
-use crate::script::{ScriptOpcode, ScriptState};
+use crate::script::ScriptState;
 
 #[inline(always)]
-#[rustfmt::skip]
-pub fn perform_string_operation(
-    state: &mut ScriptState,
-    code: ScriptOpcode,
-) {
-    return match code {
-        ScriptOpcode::AppendNum => append_num(state),
-        ScriptOpcode::Append => append(state),
-        ScriptOpcode::AppendSignNum => append_signnum(state),
-        ScriptOpcode::Lowercase => lowercase(state),
-        ScriptOpcode::TextGender => state.protect(&ScriptState::ACTIVE_PLAYER, |state| text_gender(state)),
-        ScriptOpcode::ToString => to_string(state),
-        ScriptOpcode::Compare => compare(state),
-        ScriptOpcode::TextSwitch => text_switch(state),
-        ScriptOpcode::AppendChar => append_char(state),
-        ScriptOpcode::StringLength => string_length(state),
-        ScriptOpcode::SubString => substring(state),
-        ScriptOpcode::StringIndexOfChar => string_indexof_char(state),
-        ScriptOpcode::StringIndexOfString => string_indexof_string(state),
-        _ => state.abort(format!("Unrecognised string ops code: {:?}", code)),
-    };
-}
-
-#[inline(always)]
-fn append_num(state: &mut ScriptState) {
+pub(crate) fn append_num(state: &mut ScriptState) {
     let b: String = state.pop_string();
     let a: i32 = state.pop_int();
     state.push_string(b + &a.to_string());
 }
 
 #[inline(always)]
-fn append(state: &mut ScriptState) {
+pub(crate) fn append(state: &mut ScriptState) {
     let b: String = state.pop_string();
     let a: String = state.pop_string();
     state.push_string(a + &b);
 }
 
 #[inline(always)]
-fn append_signnum(state: &mut ScriptState) {
+pub(crate) fn append_signnum(state: &mut ScriptState) {
     let b: String = state.pop_string();
     let a: i32 = state.pop_int();
     if a >= 0 {
@@ -50,14 +26,14 @@ fn append_signnum(state: &mut ScriptState) {
 }
 
 #[inline(always)]
-fn lowercase(state: &mut ScriptState) {
+pub(crate) fn lowercase(state: &mut ScriptState) {
     let a: String = state.pop_string().to_ascii_lowercase();
     state.push_string(a);
 }
 
 #[rustfmt::skip]
 #[inline(always)]
-fn text_gender(state: &mut ScriptState) {
+pub(crate)fn text_gender(state: &mut ScriptState) {
     let female: String = state.pop_string();
     let male: String = state.pop_string();
     match state.get_active_player() {
@@ -73,13 +49,13 @@ fn text_gender(state: &mut ScriptState) {
 }
 
 #[inline(always)]
-fn to_string(state: &mut ScriptState) {
+pub(crate) fn to_string(state: &mut ScriptState) {
     let a: i32 = state.pop_int();
     state.push_string(a.to_string());
 }
 
 #[inline(always)]
-fn compare(state: &mut ScriptState) {
+pub(crate) fn compare(state: &mut ScriptState) {
     let b: String = state.pop_string();
     let a: String = state.pop_string();
     let len1: usize = a.len();
@@ -100,7 +76,7 @@ fn compare(state: &mut ScriptState) {
 }
 
 #[inline(always)]
-fn text_switch(state: &mut ScriptState) {
+pub(crate) fn text_switch(state: &mut ScriptState) {
     let c: i32 = state.pop_int();
     let b: String = state.pop_string();
     let a: String = state.pop_string();
@@ -112,7 +88,7 @@ fn text_switch(state: &mut ScriptState) {
 }
 
 #[inline(always)]
-fn append_char(state: &mut ScriptState) {
+pub(crate) fn append_char(state: &mut ScriptState) {
     let b: String = state.pop_string();
     let a: i32 = state.pop_int();
     if a == -1 {
@@ -125,13 +101,13 @@ fn append_char(state: &mut ScriptState) {
 }
 
 #[inline(always)]
-fn string_length(state: &mut ScriptState) {
+pub(crate) fn string_length(state: &mut ScriptState) {
     let a: String = state.pop_string();
     state.push_int(a.len() as i32);
 }
 
 #[inline(always)]
-fn substring(state: &mut ScriptState) {
+pub(crate) fn substring(state: &mut ScriptState) {
     let string: String = state.pop_string();
     let end: usize = state.pop_int() as usize;
     let start: usize = state.pop_int() as usize;
@@ -139,7 +115,7 @@ fn substring(state: &mut ScriptState) {
 }
 
 #[inline(always)]
-fn string_indexof_char(state: &mut ScriptState) {
+pub(crate) fn string_indexof_char(state: &mut ScriptState) {
     let b: String = state.pop_string();
     let a: i32 = state.pop_int();
     if a == -1 {
@@ -158,7 +134,7 @@ fn string_indexof_char(state: &mut ScriptState) {
 }
 
 #[inline(always)]
-fn string_indexof_string(state: &mut ScriptState) {
+pub(crate) fn string_indexof_string(state: &mut ScriptState) {
     let b: String = state.pop_string();
     let a: String = state.pop_string();
     state.push_int(b.find(&a).map_or(-1, |index| index as i32)); // return -1 if not found.

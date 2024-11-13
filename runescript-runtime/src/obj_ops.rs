@@ -1,5 +1,5 @@
 use crate::coord_grid::CoordGrid;
-use crate::script::{ScriptOpcode, ScriptState};
+use crate::script::ScriptState;
 use crate::Engine;
 use wasm_bindgen::prelude::wasm_bindgen;
 
@@ -22,29 +22,7 @@ extern "C" {
 }
 
 #[inline(always)]
-#[rustfmt::skip]
-pub fn perform_obj_operation(
-    engine: &Engine,
-    state: &mut ScriptState,
-    code: ScriptOpcode,
-) {
-    return match code {
-        ScriptOpcode::ObjAdd => state.abort(format!("Unimplemented! {:?}", code)),
-        ScriptOpcode::ObjAddAll => obj_addall(engine, state),
-        ScriptOpcode::ObjCoord => state.abort(format!("Unimplemented! {:?}", code)),
-        ScriptOpcode::ObjCount => state.abort(format!("Unimplemented! {:?}", code)),
-        ScriptOpcode::ObjDel => state.abort(format!("Unimplemented! {:?}", code)),
-        ScriptOpcode::ObjName => state.abort(format!("Unimplemented! {:?}", code)),
-        ScriptOpcode::ObjParam => state.abort(format!("Unimplemented! {:?}", code)),
-        ScriptOpcode::ObjTakeItem => state.abort(format!("Unimplemented! {:?}", code)),
-        ScriptOpcode::ObjType => state.abort(format!("Unimplemented! {:?}", code)),
-        ScriptOpcode::ObjFind => state.abort(format!("Unimplemented! {:?}", code)),
-        _ => state.abort(format!("Unrecognised obj ops code: {:?}", code)),
-    }
-}
-
-#[inline(always)]
-fn obj_addall(engine: &Engine, state: &mut ScriptState) {
+pub(crate) fn obj_addall(engine: &Engine, state: &mut ScriptState) {
     let duration: i32 = state.pop_int();
     let count: i32 = state.pop_int();
     let id: i32 = state.pop_int();

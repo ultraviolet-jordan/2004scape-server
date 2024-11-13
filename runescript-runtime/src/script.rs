@@ -1784,12 +1784,6 @@ impl ScriptState {
     }
 
     #[inline(always)]
-    #[wasm_bindgen(method, setter = error)]
-    pub fn set_error(&mut self, error: String) {
-        self.error = error;
-    }
-
-    #[inline(always)]
     #[wasm_bindgen(method, setter = self)]
     pub fn set_self(&mut self, _self: JsValue) {
         self._self = _self;

@@ -1,83 +1,35 @@
 use crate::coord_grid::CoordGrid;
-use crate::script::{ScriptExecutionState, ScriptOpcode, ScriptState};
+use crate::script::{ScriptExecutionState, ScriptState};
 use crate::Engine;
 use rand::random;
 
 #[inline(always)]
-#[rustfmt::skip]
-pub fn perform_server_operation(
-    engine: &Engine,
-    state: &mut ScriptState,
-    code: ScriptOpcode,
-) {
-    return match code {
-        ScriptOpcode::CoordX => coord_x(state),
-        ScriptOpcode::CoordY => coord_y(state),
-        ScriptOpcode::CoordZ => coord_z(state),
-        ScriptOpcode::Distance => distance(state),
-        ScriptOpcode::HuntAll => state.abort(format!("Unimplemented! {:?}", code)),
-        ScriptOpcode::HuntNext => state.abort(format!("Unimplemented! {:?}", code)),
-        ScriptOpcode::InZone => inzone(state),
-        ScriptOpcode::LineOfSight => line_of_sight(engine, state),
-        ScriptOpcode::LineOfWalk => line_of_walk(engine, state),
-        ScriptOpcode::MapBlocked => map_blocked(engine, state),
-        ScriptOpcode::MapIndoors => map_indoors(engine, state),
-        ScriptOpcode::MapClock => map_clock(engine, state),
-        ScriptOpcode::MapLocAddUnsafe => state.abort(format!("Unimplemented! {:?}", code)),
-        ScriptOpcode::MapMembers => map_members(engine, state),
-        ScriptOpcode::MapPlayerCount => state.abort(format!("Unimplemented! {:?}", code)),
-        ScriptOpcode::MapFindSquare => state.abort(format!("Unimplemented! {:?}", code)),
-        ScriptOpcode::MoveCoord => movecoord(state),
-        ScriptOpcode::PlayerCount => state.abort(format!("Unimplemented! {:?}", code)),
-        ScriptOpcode::ProjAnimMap => state.abort(format!("Unimplemented! {:?}", code)),
-        ScriptOpcode::ProjAnimNpc => state.abort(format!("Unimplemented! {:?}", code)),
-        ScriptOpcode::ProjAnimPl => state.abort(format!("Unimplemented! {:?}", code)),
-        ScriptOpcode::SeqLength => state.abort(format!("Unimplemented! {:?}", code)),
-        ScriptOpcode::SplitGet => state.abort(format!("Unimplemented! {:?}", code)),
-        ScriptOpcode::SplitGetAnim => state.abort(format!("Unimplemented! {:?}", code)),
-        ScriptOpcode::SplitInit => state.abort(format!("Unimplemented! {:?}", code)),
-        ScriptOpcode::SplitLineCount => state.abort(format!("Unimplemented! {:?}", code)),
-        ScriptOpcode::SplitPageCount => state.abort(format!("Unimplemented! {:?}", code)),
-        ScriptOpcode::SpotAnimMap => spotanim_map(engine, state),
-        ScriptOpcode::StatRandom => stat_random(state),
-        ScriptOpcode::StructParam => state.abort(format!("Unimplemented! {:?}", code)),
-        ScriptOpcode::WorldDelay => world_delay(state),
-        ScriptOpcode::NpcsCount => state.abort(format!("Unimplemented! {:?}", code)),
-        ScriptOpcode::ZonesCount => zonecount(engine, state),
-        ScriptOpcode::LocsCount => loccount(engine, state),
-        ScriptOpcode::ObjsCount => objcount(engine, state),
-        ScriptOpcode::MapMulti => state.abort(format!("Unimplemented! {:?}", code)),
-        _ => state.abort(format!("Unrecognised server ops code: {:?}", code)),
-    };
-}
-
-#[inline(always)]
-fn coord_x(state: &mut ScriptState) {
+pub(crate) fn coord_x(state: &mut ScriptState) {
     let a: CoordGrid = CoordGrid::new(state.pop_int() as u32);
     state.push_int(a.x() as i32);
 }
 
 #[inline(always)]
-fn coord_y(state: &mut ScriptState) {
+pub(crate) fn coord_y(state: &mut ScriptState) {
     let a: CoordGrid = CoordGrid::new(state.pop_int() as u32);
     state.push_int(a.y() as i32);
 }
 
 #[inline(always)]
-fn coord_z(state: &mut ScriptState) {
+pub(crate) fn coord_z(state: &mut ScriptState) {
     let a: CoordGrid = CoordGrid::new(state.pop_int() as u32);
     state.push_int(a.z() as i32);
 }
 
 #[inline(always)]
-fn distance(state: &mut ScriptState) {
+pub(crate) fn distance(state: &mut ScriptState) {
     let b: CoordGrid = CoordGrid::new(state.pop_int() as u32);
     let a: CoordGrid = CoordGrid::new(state.pop_int() as u32);
     state.push_int(a.distance(b) as i32);
 }
 
 #[inline(always)]
-fn inzone(state: &mut ScriptState) {
+pub(crate) fn inzone(state: &mut ScriptState) {
     let c: CoordGrid = CoordGrid::new(state.pop_int() as u32);
     let b: CoordGrid = CoordGrid::new(state.pop_int() as u32);
     let a: CoordGrid = CoordGrid::new(state.pop_int() as u32);
@@ -94,43 +46,43 @@ fn inzone(state: &mut ScriptState) {
 }
 
 #[inline(always)]
-fn line_of_sight(engine: &Engine, state: &mut ScriptState) {
+pub(crate) fn line_of_sight(engine: &Engine, state: &mut ScriptState) {
     let b: i32 = state.pop_int();
     let a: i32 = state.pop_int();
     // state.push_int(engine.line_of_sight(a, b) as i32);
 }
 
 #[inline(always)]
-fn line_of_walk(engine: &Engine, state: &mut ScriptState) {
+pub(crate) fn line_of_walk(engine: &Engine, state: &mut ScriptState) {
     let b: i32 = state.pop_int();
     let a: i32 = state.pop_int();
     // state.push_int(engine.line_of_walk(a, b) as i32);
 }
 
 #[inline(always)]
-fn map_blocked(engine: &Engine, state: &mut ScriptState) {
+pub(crate) fn map_blocked(engine: &Engine, state: &mut ScriptState) {
     let a: i32 = state.pop_int();
     // state.push_int(engine.map_blocked(a) as i32);
 }
 
 #[inline(always)]
-fn map_indoors(engine: &Engine, state: &mut ScriptState) {
+pub(crate) fn map_indoors(engine: &Engine, state: &mut ScriptState) {
     let a: i32 = state.pop_int();
     // state.push_int(engine.map_indoors(a) as i32);
 }
 
 #[inline(always)]
-fn map_clock(engine: &Engine, state: &mut ScriptState) {
+pub(crate) fn map_clock(engine: &Engine, state: &mut ScriptState) {
     // state.push_int(engine.map_clock() as i32);
 }
 
 #[inline(always)]
-fn map_members(engine: &Engine, state: &mut ScriptState) {
+pub(crate) fn map_members(engine: &Engine, state: &mut ScriptState) {
     // state.push_int(engine.map_members() as i32);
 }
 
 #[inline(always)]
-fn movecoord(state: &mut ScriptState) {
+pub(crate) fn movecoord(state: &mut ScriptState) {
     let z: i32 = state.pop_int();
     let y: i32 = state.pop_int();
     let x: i32 = state.pop_int();
@@ -139,7 +91,7 @@ fn movecoord(state: &mut ScriptState) {
 }
 
 #[inline(always)]
-fn spotanim_map(engine: &Engine, state: &mut ScriptState) {
+pub(crate) fn spotanim_map(engine: &Engine, state: &mut ScriptState) {
     let delay: i32 = state.pop_int();
     let height: i32 = state.pop_int();
     let coord: i32 = state.pop_int();
@@ -158,7 +110,7 @@ fn spotanim_map(engine: &Engine, state: &mut ScriptState) {
 
 // https://x.com/JagexAsh/status/1110604592138670083
 #[inline(always)]
-fn stat_random(state: &mut ScriptState) {
+pub(crate) fn stat_random(state: &mut ScriptState) {
     let high: i32 = state.pop_int();
     let low: i32 = state.pop_int();
     let level: i32 = state.pop_int();
@@ -172,22 +124,22 @@ fn stat_random(state: &mut ScriptState) {
 // https://x.com/JagexAsh/status/1730321158858276938
 // https://x.com/JagexAsh/status/1814230119411540058
 #[inline(always)]
-fn world_delay(state: &mut ScriptState) {
+pub(crate) fn world_delay(state: &mut ScriptState) {
     // arg is popped elsewhere
     state.set_execution_state(ScriptExecutionState::WorldSuspended);
 }
 
 #[inline(always)]
-fn zonecount(engine: &Engine, state: &mut ScriptState) {
+pub(crate) fn zonecount(engine: &Engine, state: &mut ScriptState) {
     // state.push_int(engine.zonecount() as i32);
 }
 
 #[inline(always)]
-fn loccount(engine: &Engine, state: &mut ScriptState) {
+pub(crate) fn loccount(engine: &Engine, state: &mut ScriptState) {
     // state.push_int(engine.loccount() as i32);
 }
 
 #[inline(always)]
-fn objcount(engine: &Engine, state: &mut ScriptState) {
+pub(crate) fn objcount(engine: &Engine, state: &mut ScriptState) {
     // state.push_int(engine.objcount() as i32);
 }

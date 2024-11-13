@@ -1,88 +1,50 @@
 use crate::bits::Bits;
-use crate::script::{ScriptOpcode, ScriptState};
+use crate::script::ScriptState;
 use crate::trig::Trig;
 use crate::{BITS, TRIG};
-use rand::random;
 
 #[inline(always)]
-#[rustfmt::skip]
-pub fn perform_math_operation(state: &mut ScriptState, code: ScriptOpcode) {
-    return match code {
-        ScriptOpcode::Add => add(state),
-        ScriptOpcode::Sub => sub(state),
-        ScriptOpcode::Multiply => multiply(state),
-        ScriptOpcode::Divide => divide(state),
-        ScriptOpcode::Random => _random(state),
-        ScriptOpcode::RandomInc => randominc(state),
-        ScriptOpcode::Interpolate => interpolate(state),
-        ScriptOpcode::AddPercent => addpercent(state),
-        ScriptOpcode::SetBit => setbit(state),
-        ScriptOpcode::ClearBit => clearbit(state),
-        ScriptOpcode::TestBit => testbit(state),
-        ScriptOpcode::Modulo => modulo(state),
-        ScriptOpcode::Pow => pow(state),
-        ScriptOpcode::InvPow => invpow(state),
-        ScriptOpcode::And => and(state),
-        ScriptOpcode::Or => or(state),
-        ScriptOpcode::Min => min(state),
-        ScriptOpcode::Max => max(state),
-        ScriptOpcode::Scale => scale(state),
-        ScriptOpcode::BitCount => bitcount(state),
-        ScriptOpcode::ToggleBit => togglebit(state),
-        ScriptOpcode::SetBitRange => setbit_range(state),
-        ScriptOpcode::ClearBitRange => clearbit_range(state),
-        ScriptOpcode::GetBitRange => getbit_range(state),
-        ScriptOpcode::SetBitRangeToInt => setbit_range_toint(state),
-        ScriptOpcode::SinDeg => sin_deg(state),
-        ScriptOpcode::CosDeg => cos_deg(state),
-        ScriptOpcode::Atan2Deg => atan2_deg(state),
-        ScriptOpcode::Abs => abs(state),
-        _ => state.abort(format!("Unrecognised math ops code: {:?}", code)),
-    };
-}
-
-#[inline(always)]
-fn add(state: &mut ScriptState) {
+pub(crate) fn add(state: &mut ScriptState) {
     let b: i32 = state.pop_int();
     let a: i32 = state.pop_int();
     state.push_int(a.wrapping_add(b));
 }
 
 #[inline(always)]
-fn sub(state: &mut ScriptState) {
+pub(crate) fn sub(state: &mut ScriptState) {
     let b: i32 = state.pop_int();
     let a: i32 = state.pop_int();
     state.push_int(a.wrapping_sub(b));
 }
 
 #[inline(always)]
-fn multiply(state: &mut ScriptState) {
+pub(crate) fn multiply(state: &mut ScriptState) {
     let b: i32 = state.pop_int();
     let a: i32 = state.pop_int();
     state.push_int(a.wrapping_mul(b));
 }
 
 #[inline(always)]
-fn divide(state: &mut ScriptState) {
+pub(crate) fn divide(state: &mut ScriptState) {
     let b: i32 = state.pop_int();
     let a: i32 = state.pop_int();
     state.push_int(a.wrapping_div(b));
 }
 
 #[inline(always)]
-fn _random(state: &mut ScriptState) {
+pub(crate) fn random(state: &mut ScriptState) {
     let a: f64 = state.pop_int() as f64;
-    state.push_int((random::<f64>() * a) as i32);
+    state.push_int((rand::random::<f64>() * a) as i32);
 }
 
 #[inline(always)]
-fn randominc(state: &mut ScriptState) {
+pub(crate) fn randominc(state: &mut ScriptState) {
     let a: f64 = state.pop_int().wrapping_add(1) as f64;
-    state.push_int((random::<f64>() * a) as i32);
+    state.push_int((rand::random::<f64>() * a) as i32);
 }
 
 #[inline(always)]
-fn interpolate(state: &mut ScriptState) {
+pub(crate) fn interpolate(state: &mut ScriptState) {
     let x: i32 = state.pop_int();
     let x1: i32 = state.pop_int();
     let x0: i32 = state.pop_int();
@@ -93,7 +55,7 @@ fn interpolate(state: &mut ScriptState) {
 }
 
 #[inline(always)]
-fn addpercent(state: &mut ScriptState) {
+pub(crate) fn addpercent(state: &mut ScriptState) {
     let percent: i32 = state.pop_int();
     let num: i32 = state.pop_int();
     state.push_int(
@@ -104,42 +66,42 @@ fn addpercent(state: &mut ScriptState) {
 }
 
 #[inline(always)]
-fn setbit(state: &mut ScriptState) {
+pub(crate) fn setbit(state: &mut ScriptState) {
     let bit: i32 = state.pop_int();
     let value: i32 = state.pop_int();
     state.push_int(value | (1i32.wrapping_shl(bit as u32)));
 }
 
 #[inline(always)]
-fn clearbit(state: &mut ScriptState) {
+pub(crate) fn clearbit(state: &mut ScriptState) {
     let bit: i32 = state.pop_int();
     let value: i32 = state.pop_int();
     state.push_int(value & !1i32.wrapping_shl(bit as u32));
 }
 
 #[inline(always)]
-fn testbit(state: &mut ScriptState) {
+pub(crate) fn testbit(state: &mut ScriptState) {
     let bit: i32 = state.pop_int();
     let value: i32 = state.pop_int();
     state.push_int(((value & (1i32.wrapping_shl(bit as u32))) != 0) as i32);
 }
 
 #[inline(always)]
-fn modulo(state: &mut ScriptState) {
+pub(crate) fn modulo(state: &mut ScriptState) {
     let b: i32 = state.pop_int();
     let a: i32 = state.pop_int();
     state.push_int(a.wrapping_rem(b));
 }
 
 #[inline(always)]
-fn pow(state: &mut ScriptState) {
+pub(crate) fn pow(state: &mut ScriptState) {
     let exponent: i32 = state.pop_int();
     let base: i32 = state.pop_int();
     state.push_int(base.wrapping_pow(exponent as u32));
 }
 
 #[inline(always)]
-fn invpow(state: &mut ScriptState) {
+pub(crate) fn invpow(state: &mut ScriptState) {
     let b: i32 = state.pop_int();
     let a: i32 = state.pop_int();
     if a == 0 || b == 0 {
@@ -156,35 +118,35 @@ fn invpow(state: &mut ScriptState) {
 }
 
 #[inline(always)]
-fn and(state: &mut ScriptState) {
+pub(crate) fn and(state: &mut ScriptState) {
     let b: i32 = state.pop_int();
     let a: i32 = state.pop_int();
     state.push_int(a & b);
 }
 
 #[inline(always)]
-fn or(state: &mut ScriptState) {
+pub(crate) fn or(state: &mut ScriptState) {
     let b: i32 = state.pop_int();
     let a: i32 = state.pop_int();
     state.push_int(a | b);
 }
 
 #[inline(always)]
-fn min(state: &mut ScriptState) {
+pub(crate) fn min(state: &mut ScriptState) {
     let b: i32 = state.pop_int();
     let a: i32 = state.pop_int();
     state.push_int(a.min(b));
 }
 
 #[inline(always)]
-fn max(state: &mut ScriptState) {
+pub(crate) fn max(state: &mut ScriptState) {
     let b: i32 = state.pop_int();
     let a: i32 = state.pop_int();
     state.push_int(a.max(b));
 }
 
 #[inline(always)]
-fn scale(state: &mut ScriptState) {
+pub(crate) fn scale(state: &mut ScriptState) {
     let c: i32 = state.pop_int();
     let b: i32 = state.pop_int();
     let a: i32 = state.pop_int();
@@ -192,20 +154,20 @@ fn scale(state: &mut ScriptState) {
 }
 
 #[inline(always)]
-fn bitcount(state: &mut ScriptState) {
+pub(crate) fn bitcount(state: &mut ScriptState) {
     let a: i32 = state.pop_int();
     state.push_int(Bits::bitcount(a));
 }
 
 #[inline(always)]
-fn togglebit(state: &mut ScriptState) {
+pub(crate) fn togglebit(state: &mut ScriptState) {
     let bit: i32 = state.pop_int();
     let value: i32 = state.pop_int();
     state.push_int(value ^ (1i32.wrapping_shl(bit as u32)));
 }
 
 #[inline(always)]
-fn setbit_range(state: &mut ScriptState) {
+pub(crate) fn setbit_range(state: &mut ScriptState) {
     let end: i32 = state.pop_int();
     let start: i32 = state.pop_int();
     let num: i32 = state.pop_int();
@@ -213,7 +175,7 @@ fn setbit_range(state: &mut ScriptState) {
 }
 
 #[inline(always)]
-fn clearbit_range(state: &mut ScriptState) {
+pub(crate) fn clearbit_range(state: &mut ScriptState) {
     let end: i32 = state.pop_int();
     let start: i32 = state.pop_int();
     let num: i32 = state.pop_int();
@@ -221,7 +183,7 @@ fn clearbit_range(state: &mut ScriptState) {
 }
 
 #[inline(always)]
-fn getbit_range(state: &mut ScriptState) {
+pub(crate) fn getbit_range(state: &mut ScriptState) {
     let end: i32 = state.pop_int();
     let start: i32 = state.pop_int();
     let num: i32 = state.pop_int();
@@ -230,7 +192,7 @@ fn getbit_range(state: &mut ScriptState) {
 }
 
 #[inline(always)]
-fn setbit_range_toint(state: &mut ScriptState) {
+pub(crate) fn setbit_range_toint(state: &mut ScriptState) {
     let end: i32 = state.pop_int();
     let start: i32 = state.pop_int();
     let value: i32 = state.pop_int();
@@ -239,26 +201,26 @@ fn setbit_range_toint(state: &mut ScriptState) {
 }
 
 #[inline(always)]
-fn sin_deg(state: &mut ScriptState) {
+pub(crate) fn sin_deg(state: &mut ScriptState) {
     let a: i32 = state.pop_int();
     state.push_int(TRIG.sin(a));
 }
 
 #[inline(always)]
-fn cos_deg(state: &mut ScriptState) {
+pub(crate) fn cos_deg(state: &mut ScriptState) {
     let a: i32 = state.pop_int();
     state.push_int(TRIG.cos(a));
 }
 
 #[inline(always)]
-fn atan2_deg(state: &mut ScriptState) {
+pub(crate) fn atan2_deg(state: &mut ScriptState) {
     let b: i32 = state.pop_int();
     let a: i32 = state.pop_int();
     state.push_int(Trig::atan2(b, a));
 }
 
 #[inline(always)]
-fn abs(state: &mut ScriptState) {
+pub(crate) fn abs(state: &mut ScriptState) {
     let a: i32 = state.pop_int();
     state.push_int(a.abs());
 }

@@ -1,13 +1,9 @@
 use crate::bits::Bits;
 use crate::coord_grid::CoordGrid;
-use crate::core_ops::{perform_core_operation, VarPlayerType};
-use crate::debug_ops::perform_debug_operation;
-use crate::math_ops::perform_math_operation;
-use crate::obj_ops::{perform_obj_operation, Obj, ObjType};
-use crate::player_ops::{perform_player_operation, Player};
+use crate::core_ops::VarPlayerType;
+use crate::obj_ops::{Obj, ObjType};
+use crate::player_ops::Player;
 use crate::script::{ScriptExecutionState, ScriptFile, ScriptOpcode, ScriptState};
-use crate::server_ops::perform_server_operation;
-use crate::string_ops::perform_string_operation;
 use crate::trig::Trig;
 use once_cell::sync::Lazy;
 use wasm_bindgen::prelude::wasm_bindgen;
@@ -146,210 +142,216 @@ impl ScriptState {
     }
 }
 
-#[inline(always)]
 pub fn execute_command(engine: &Engine, state: &mut ScriptState, code: ScriptOpcode) {
     // info!("{:?}", code);
     // log(format!("{:?}", code).as_str());
     // log(format!("{:?}", state.get_script().name()).as_str());
     match code {
         // Core language ops (0-99)
-        ScriptOpcode::PushConstantInt
-        | ScriptOpcode::PushVarp
-        | ScriptOpcode::PopVarp
-        | ScriptOpcode::PushConstantString
-        | ScriptOpcode::PushVarn
-        | ScriptOpcode::PopVarn
-        | ScriptOpcode::Branch
-        | ScriptOpcode::BranchNot
-        | ScriptOpcode::BranchEquals
-        | ScriptOpcode::BranchLessThan
-        | ScriptOpcode::BranchGreaterThan
-        | ScriptOpcode::PushVars
-        | ScriptOpcode::PopVars
-        | ScriptOpcode::Return
-        | ScriptOpcode::GoSub
-        | ScriptOpcode::Jump
-        | ScriptOpcode::Switch
-        | ScriptOpcode::PushVarbit
-        | ScriptOpcode::PopVarbit
-        | ScriptOpcode::BranchLessThanOrEquals
-        | ScriptOpcode::BranchGreaterThanOrEquals
-        | ScriptOpcode::PushIntLocal
-        | ScriptOpcode::PopIntLocal
-        | ScriptOpcode::PushStringLocal
-        | ScriptOpcode::PopStringLocal
-        | ScriptOpcode::JoinString
-        | ScriptOpcode::PopIntDiscard
-        | ScriptOpcode::PopStringDiscard
-        | ScriptOpcode::GoSubWithParams
-        | ScriptOpcode::JumpWithParams
-        | ScriptOpcode::PushVarcInt
-        | ScriptOpcode::PopVarcInt
-        | ScriptOpcode::DefineArray
-        | ScriptOpcode::PushArrayInt
-        | ScriptOpcode::PopArrayInt
-        | ScriptOpcode::EndCoreOps => perform_core_operation(engine, state, code),
+        ScriptOpcode::PushConstantInt => core_ops::push_constant_int(state),
+        ScriptOpcode::PushVarp => core_ops::push_varp(engine, state),
+        ScriptOpcode::PopVarp => core_ops::pop_varp(engine, state),
+        ScriptOpcode::PushConstantString => core_ops::push_constant_string(state),
+        ScriptOpcode::PushVarn => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::PopVarn => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::Branch => core_ops::branch(state),
+        ScriptOpcode::BranchNot => core_ops::branch_not(state),
+        ScriptOpcode::BranchEquals => core_ops::branch_equals(state),
+        ScriptOpcode::BranchLessThan => core_ops::branch_less_than(state),
+        ScriptOpcode::BranchGreaterThan => core_ops::branch_greater_than(state),
+        ScriptOpcode::PushVars => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::PopVars => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::Return => core_ops::_return(state),
+        ScriptOpcode::GoSub => core_ops::gosub(engine, state),
+        ScriptOpcode::Jump => core_ops::jump(engine, state),
+        ScriptOpcode::Switch => core_ops::switch(state),
+        ScriptOpcode::PushVarbit => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::PopVarbit => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::BranchLessThanOrEquals => core_ops::branch_less_than_or_equals(state),
+        ScriptOpcode::BranchGreaterThanOrEquals => core_ops::branch_greater_than_or_equals(state),
+        ScriptOpcode::PushIntLocal => core_ops::push_int_local(state),
+        ScriptOpcode::PopIntLocal => core_ops::pop_int_local(state),
+        ScriptOpcode::PushStringLocal => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::PopStringLocal => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::JoinString => core_ops::join_string(state),
+        ScriptOpcode::PopIntDiscard => core_ops::pop_int_discard(state),
+        ScriptOpcode::PopStringDiscard => core_ops::pop_string_discard(state),
+        ScriptOpcode::GoSubWithParams => core_ops::gosub_with_params(engine, state),
+        ScriptOpcode::JumpWithParams => core_ops::jump_with_params(engine, state),
+        ScriptOpcode::PushVarcInt => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::PopVarcInt => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::DefineArray => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::PushArrayInt => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::PopArrayInt => state.abort(format!("Unimplemented! {:?}", code)),
         // Server ops (1000-1999)
-        ScriptOpcode::CoordX
-        | ScriptOpcode::CoordY
-        | ScriptOpcode::CoordZ
-        | ScriptOpcode::Distance
-        | ScriptOpcode::HuntAll
-        | ScriptOpcode::HuntNext
-        | ScriptOpcode::InZone
-        | ScriptOpcode::LineOfSight
-        | ScriptOpcode::LineOfWalk
-        | ScriptOpcode::MapBlocked
-        | ScriptOpcode::MapIndoors
-        | ScriptOpcode::MapClock
-        | ScriptOpcode::MapLocAddUnsafe
-        | ScriptOpcode::MapMembers
-        | ScriptOpcode::MapPlayerCount
-        | ScriptOpcode::MapFindSquare
-        | ScriptOpcode::MoveCoord
-        | ScriptOpcode::PlayerCount
-        | ScriptOpcode::ProjAnimMap
-        | ScriptOpcode::ProjAnimNpc
-        | ScriptOpcode::ProjAnimPl
-        | ScriptOpcode::SeqLength
-        | ScriptOpcode::SplitGet
-        | ScriptOpcode::SplitGetAnim
-        | ScriptOpcode::SplitInit
-        | ScriptOpcode::SplitLineCount
-        | ScriptOpcode::SplitPageCount
-        | ScriptOpcode::SpotAnimMap
-        | ScriptOpcode::StatRandom
-        | ScriptOpcode::StructParam
-        | ScriptOpcode::WorldDelay
-        | ScriptOpcode::NpcsCount
-        | ScriptOpcode::ZonesCount
-        | ScriptOpcode::LocsCount
-        | ScriptOpcode::ObjsCount
-        | ScriptOpcode::MapMulti => perform_server_operation(engine, state, code),
+        ScriptOpcode::CoordX => server_ops::coord_x(state),
+        ScriptOpcode::CoordY => server_ops::coord_y(state),
+        ScriptOpcode::CoordZ => server_ops::coord_z(state),
+        ScriptOpcode::Distance => server_ops::distance(state),
+        ScriptOpcode::HuntAll => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::HuntNext => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::InZone => server_ops::inzone(state),
+        ScriptOpcode::LineOfSight => server_ops::line_of_sight(engine, state),
+        ScriptOpcode::LineOfWalk => server_ops::line_of_walk(engine, state),
+        ScriptOpcode::MapBlocked => server_ops::map_blocked(engine, state),
+        ScriptOpcode::MapIndoors => server_ops::map_indoors(engine, state),
+        ScriptOpcode::MapClock => server_ops::map_clock(engine, state),
+        ScriptOpcode::MapLocAddUnsafe => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::MapMembers => server_ops::map_members(engine, state),
+        ScriptOpcode::MapPlayerCount => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::MapFindSquare => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::MoveCoord => server_ops::movecoord(state),
+        ScriptOpcode::PlayerCount => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::ProjAnimMap => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::ProjAnimNpc => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::ProjAnimPl => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::SeqLength => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::SplitGet => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::SplitGetAnim => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::SplitInit => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::SplitLineCount => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::SplitPageCount => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::SpotAnimMap => server_ops::spotanim_map(engine, state),
+        ScriptOpcode::StatRandom => server_ops::stat_random(state),
+        ScriptOpcode::StructParam => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::WorldDelay => server_ops::world_delay(state),
+        ScriptOpcode::NpcsCount => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::ZonesCount => server_ops::zonecount(engine, state),
+        ScriptOpcode::LocsCount => server_ops::loccount(engine, state),
+        ScriptOpcode::ObjsCount => server_ops::objcount(engine, state),
+        ScriptOpcode::MapMulti => state.abort(format!("Unimplemented! {:?}", code)),
         // Player ops (2000-2499)
-        ScriptOpcode::AllowDesign
-        | ScriptOpcode::Anim
-        | ScriptOpcode::BasReadyAnim
-        | ScriptOpcode::BasRunning
-        | ScriptOpcode::BasTurnOnSpot
-        | ScriptOpcode::BasWalkB
-        | ScriptOpcode::BasWalkF
-        | ScriptOpcode::BasWalkL
-        | ScriptOpcode::BasWalkR
-        | ScriptOpcode::BufferFull
-        | ScriptOpcode::BuildAppearance
-        | ScriptOpcode::Busy
-        | ScriptOpcode::CamLookAt
-        | ScriptOpcode::CamMoveTo
-        | ScriptOpcode::CamReset
-        | ScriptOpcode::CamShake
-        | ScriptOpcode::ClearQueue
-        | ScriptOpcode::ClearSoftTimer
-        | ScriptOpcode::ClearTimer
-        | ScriptOpcode::GetTimer
-        | ScriptOpcode::Coord
-        | ScriptOpcode::Damage
-        | ScriptOpcode::Displayname
-        | ScriptOpcode::FaceSquare
-        | ScriptOpcode::FindUid
-        | ScriptOpcode::Gender
-        | ScriptOpcode::GetQueue
-        | ScriptOpcode::StatAdvance
-        | ScriptOpcode::HeadiconsGet
-        | ScriptOpcode::HeadiconsSet
-        | ScriptOpcode::HealEnergy
-        | ScriptOpcode::HintCoord
-        | ScriptOpcode::HintNpc
-        | ScriptOpcode::HintPlayer
-        | ScriptOpcode::HintStop
-        | ScriptOpcode::IfClose
-        | ScriptOpcode::TutClose
-        | ScriptOpcode::IfMultiZone
-        | ScriptOpcode::IfOpenChat
-        | ScriptOpcode::TutOpen
-        | ScriptOpcode::IfOpenMain
-        | ScriptOpcode::IfOpenMainSide
-        | ScriptOpcode::IfOpenSide
-        | ScriptOpcode::IfSetAnim
-        | ScriptOpcode::IfSetColour
-        | ScriptOpcode::IfSetHide
-        | ScriptOpcode::IfSetModel
-        | ScriptOpcode::IfSetRecol
-        | ScriptOpcode::IfSetNpcHead
-        | ScriptOpcode::IfSetObject
-        | ScriptOpcode::IfSetPlayerHead
-        | ScriptOpcode::IfSetPosition
-        | ScriptOpcode::IfSetResumeButtons
-        | ScriptOpcode::IfSetTab
-        | ScriptOpcode::IfSetTabActive
-        | ScriptOpcode::TutFlash
-        | ScriptOpcode::IfSetText
-        | ScriptOpcode::LastLoginInfo
-        | ScriptOpcode::LastCom
-        | ScriptOpcode::LastInt
-        | ScriptOpcode::LastItem
-        | ScriptOpcode::LastSlot
-        | ScriptOpcode::LastTargetSlot
-        | ScriptOpcode::LastUseItem
-        | ScriptOpcode::LastUseSlot
-        | ScriptOpcode::LongQueue
-        | ScriptOpcode::Mes
-        | ScriptOpcode::MidiJingle
-        | ScriptOpcode::MidiSong
-        | ScriptOpcode::Name
-        | ScriptOpcode::PApRange
-        | ScriptOpcode::PArriveDelay
-        | ScriptOpcode::PCountDialog
-        | ScriptOpcode::PDelay
-        | ScriptOpcode::PExactMove
-        | ScriptOpcode::PFindUid
-        | ScriptOpcode::PLocMerge
-        | ScriptOpcode::PLogout
-        | ScriptOpcode::POpHeld
-        | ScriptOpcode::POpLoc
-        | ScriptOpcode::POpNpc
-        | ScriptOpcode::POpNpcT
-        | ScriptOpcode::POpObj
-        | ScriptOpcode::POpPlayer
-        | ScriptOpcode::POpPlayerT
-        | ScriptOpcode::PPauseButton
-        | ScriptOpcode::PStopAction
-        | ScriptOpcode::PTeleJump
-        | ScriptOpcode::PTeleport
-        | ScriptOpcode::PWalk
-        | ScriptOpcode::PlayerFindAllZone
-        | ScriptOpcode::PlayerFindNext
-        | ScriptOpcode::Queue
-        | ScriptOpcode::Say
-        | ScriptOpcode::WalkTrigger
-        | ScriptOpcode::SetTimer
-        | ScriptOpcode::SoftTimer
-        | ScriptOpcode::SoundSynth
-        | ScriptOpcode::SpotAnimPl
-        | ScriptOpcode::StaffModLevel
-        | ScriptOpcode::Stat
-        | ScriptOpcode::StatAdd
-        | ScriptOpcode::StatBase
-        | ScriptOpcode::StatHeal
-        | ScriptOpcode::StatSub
-        | ScriptOpcode::StrongQueue
-        | ScriptOpcode::Uid
-        | ScriptOpcode::WeakQueue
-        | ScriptOpcode::IfOpenMainOverlay
-        | ScriptOpcode::AfkEvent
-        | ScriptOpcode::LowMemory
-        | ScriptOpcode::SetIdkit
-        | ScriptOpcode::PClearPendingAction
-        | ScriptOpcode::GetWalkTrigger
-        | ScriptOpcode::Busy2
-        | ScriptOpcode::FindHero
-        | ScriptOpcode::BothHeroPoints
-        | ScriptOpcode::SetGender
-        | ScriptOpcode::SetSkinColour
-        | ScriptOpcode::PAnimProtect
-        | ScriptOpcode::RunEnergy
-        | ScriptOpcode::Weight
-        | ScriptOpcode::LastCoord => perform_player_operation(engine, state, code),
+        ScriptOpcode::AllowDesign => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::Anim => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::BasReadyAnim => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::BasRunning => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::BasTurnOnSpot => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::BasWalkB => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::BasWalkF => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::BasWalkL => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::BasWalkR => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::BufferFull => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::BuildAppearance => player_ops::buildappearance(state),
+        ScriptOpcode::Busy => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::CamLookAt => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::CamMoveTo => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::CamReset => state.protect(&ScriptState::ACTIVE_PLAYER, |state| {
+            player_ops::cam_reset(state)
+        }),
+        ScriptOpcode::CamShake => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::ClearQueue => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::ClearSoftTimer => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::ClearTimer => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::GetTimer => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::Coord => state.protect(&ScriptState::ACTIVE_PLAYER, |state| {
+            player_ops::coord(state)
+        }),
+        ScriptOpcode::Damage => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::Displayname => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::FaceSquare => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::FindUid => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::Gender => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::GetQueue => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::StatAdvance => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::HeadiconsGet => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::HeadiconsSet => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::HealEnergy => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::HintCoord => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::HintNpc => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::HintPlayer => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::HintStop => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::IfClose => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::TutClose => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::IfMultiZone => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::IfOpenChat => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::TutOpen => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::IfOpenMain => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::IfOpenMainSide => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::IfOpenSide => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::IfSetAnim => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::IfSetColour => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::IfSetHide => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::IfSetModel => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::IfSetRecol => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::IfSetNpcHead => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::IfSetObject => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::IfSetPlayerHead => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::IfSetPosition => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::IfSetResumeButtons => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::IfSetTab => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::IfSetTabActive => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::TutFlash => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::IfSetText => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::LastLoginInfo => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::LastCom => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::LastInt => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::LastItem => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::LastSlot => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::LastTargetSlot => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::LastUseItem => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::LastUseSlot => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::LongQueue => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::Mes => {
+            state.protect(&ScriptState::ACTIVE_PLAYER, |state| player_ops::mes(state))
+        }
+        ScriptOpcode::MidiJingle => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::MidiSong => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::Name => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::PApRange => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::PArriveDelay => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::PCountDialog => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::PDelay => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::PExactMove => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::PFindUid => player_ops::p_finduid(engine, state),
+        ScriptOpcode::PLocMerge => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::PLogout => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::POpHeld => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::POpLoc => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::POpNpc => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::POpNpcT => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::POpObj => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::POpPlayer => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::POpPlayerT => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::PPauseButton => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::PStopAction => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::PTeleJump => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::PTeleport => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::PWalk => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::PlayerFindAllZone => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::PlayerFindNext => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::Queue => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::Say => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::WalkTrigger => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::SetTimer => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::SoftTimer => state.protect(&ScriptState::ACTIVE_PLAYER, |state| {
+            player_ops::softtimer(engine, state)
+        }),
+        ScriptOpcode::SoundSynth => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::SpotAnimPl => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::StaffModLevel => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::Stat => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::StatAdd => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::StatBase => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::StatHeal => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::StatSub => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::StrongQueue => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::Uid => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::WeakQueue => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::IfOpenMainOverlay => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::AfkEvent => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::LowMemory => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::SetIdkit => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::PClearPendingAction => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::GetWalkTrigger => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::Busy2 => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::FindHero => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::BothHeroPoints => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::SetGender => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::SetSkinColour => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::PAnimProtect => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::RunEnergy => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::Weight => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::LastCoord => state.abort(format!("Unimplemented! {:?}", code)),
         // Npc ops (2500-2999)
         ScriptOpcode::NpcAdd
         | ScriptOpcode::NpcAnim
@@ -411,16 +413,16 @@ pub fn execute_command(engine: &Engine, state: &mut ScriptState, code: ScriptOpc
         | ScriptOpcode::LocShape
         | ScriptOpcode::LocType => state.abort(format!("Unimplemented! {:?}", code)),
         // Obj ops (3500-4000)
-        ScriptOpcode::ObjAdd
-        | ScriptOpcode::ObjAddAll
-        | ScriptOpcode::ObjCoord
-        | ScriptOpcode::ObjCount
-        | ScriptOpcode::ObjDel
-        | ScriptOpcode::ObjName
-        | ScriptOpcode::ObjParam
-        | ScriptOpcode::ObjTakeItem
-        | ScriptOpcode::ObjType
-        | ScriptOpcode::ObjFind => perform_obj_operation(engine, state, code),
+        ScriptOpcode::ObjAdd => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::ObjAddAll => obj_ops::obj_addall(engine, state),
+        ScriptOpcode::ObjCoord => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::ObjCount => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::ObjDel => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::ObjName => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::ObjParam => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::ObjTakeItem => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::ObjType => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::ObjFind => state.abort(format!("Unimplemented! {:?}", code)),
         // Npc config ops (4000-4099)
         ScriptOpcode::NcCategory
         | ScriptOpcode::NcDebugname
@@ -492,49 +494,51 @@ pub fn execute_command(engine: &Engine, state: &mut ScriptState, code: ScriptOpc
             state.abort(format!("Unimplemented! {:?}", code))
         }
         // String ops (4500-4599)
-        ScriptOpcode::AppendNum
-        | ScriptOpcode::Append
-        | ScriptOpcode::AppendSignNum
-        | ScriptOpcode::Lowercase
-        | ScriptOpcode::TextGender
-        | ScriptOpcode::ToString
-        | ScriptOpcode::Compare
-        | ScriptOpcode::TextSwitch
-        | ScriptOpcode::AppendChar
-        | ScriptOpcode::StringLength
-        | ScriptOpcode::SubString
-        | ScriptOpcode::StringIndexOfChar
-        | ScriptOpcode::StringIndexOfString => perform_string_operation(state, code),
+        ScriptOpcode::AppendNum => string_ops::append_num(state),
+        ScriptOpcode::Append => string_ops::append(state),
+        ScriptOpcode::AppendSignNum => string_ops::append_signnum(state),
+        ScriptOpcode::Lowercase => string_ops::lowercase(state),
+        ScriptOpcode::TextGender => state.protect(&ScriptState::ACTIVE_PLAYER, |state| {
+            string_ops::text_gender(state)
+        }),
+        ScriptOpcode::ToString => string_ops::to_string(state),
+        ScriptOpcode::Compare => string_ops::compare(state),
+        ScriptOpcode::TextSwitch => string_ops::text_switch(state),
+        ScriptOpcode::AppendChar => string_ops::append_char(state),
+        ScriptOpcode::StringLength => string_ops::string_length(state),
+        ScriptOpcode::SubString => string_ops::substring(state),
+        ScriptOpcode::StringIndexOfChar => string_ops::string_indexof_char(state),
+        ScriptOpcode::StringIndexOfString => string_ops::string_indexof_string(state),
         // Number ops (4600-4699)
-        ScriptOpcode::Add
-        | ScriptOpcode::Sub
-        | ScriptOpcode::Multiply
-        | ScriptOpcode::Divide
-        | ScriptOpcode::Random
-        | ScriptOpcode::RandomInc
-        | ScriptOpcode::Interpolate
-        | ScriptOpcode::AddPercent
-        | ScriptOpcode::SetBit
-        | ScriptOpcode::ClearBit
-        | ScriptOpcode::TestBit
-        | ScriptOpcode::Modulo
-        | ScriptOpcode::Pow
-        | ScriptOpcode::InvPow
-        | ScriptOpcode::And
-        | ScriptOpcode::Or
-        | ScriptOpcode::Min
-        | ScriptOpcode::Max
-        | ScriptOpcode::Scale
-        | ScriptOpcode::BitCount
-        | ScriptOpcode::ToggleBit
-        | ScriptOpcode::SetBitRange
-        | ScriptOpcode::ClearBitRange
-        | ScriptOpcode::GetBitRange
-        | ScriptOpcode::SetBitRangeToInt
-        | ScriptOpcode::SinDeg
-        | ScriptOpcode::CosDeg
-        | ScriptOpcode::Atan2Deg
-        | ScriptOpcode::Abs => perform_math_operation(state, code),
+        ScriptOpcode::Add => math_ops::add(state),
+        ScriptOpcode::Sub => math_ops::sub(state),
+        ScriptOpcode::Multiply => math_ops::multiply(state),
+        ScriptOpcode::Divide => math_ops::divide(state),
+        ScriptOpcode::Random => math_ops::random(state),
+        ScriptOpcode::RandomInc => math_ops::randominc(state),
+        ScriptOpcode::Interpolate => math_ops::interpolate(state),
+        ScriptOpcode::AddPercent => math_ops::addpercent(state),
+        ScriptOpcode::SetBit => math_ops::setbit(state),
+        ScriptOpcode::ClearBit => math_ops::clearbit(state),
+        ScriptOpcode::TestBit => math_ops::testbit(state),
+        ScriptOpcode::Modulo => math_ops::modulo(state),
+        ScriptOpcode::Pow => math_ops::pow(state),
+        ScriptOpcode::InvPow => math_ops::invpow(state),
+        ScriptOpcode::And => math_ops::and(state),
+        ScriptOpcode::Or => math_ops::or(state),
+        ScriptOpcode::Min => math_ops::min(state),
+        ScriptOpcode::Max => math_ops::max(state),
+        ScriptOpcode::Scale => math_ops::scale(state),
+        ScriptOpcode::BitCount => math_ops::bitcount(state),
+        ScriptOpcode::ToggleBit => math_ops::togglebit(state),
+        ScriptOpcode::SetBitRange => math_ops::setbit_range(state),
+        ScriptOpcode::ClearBitRange => math_ops::clearbit_range(state),
+        ScriptOpcode::GetBitRange => math_ops::getbit_range(state),
+        ScriptOpcode::SetBitRangeToInt => math_ops::setbit_range_toint(state),
+        ScriptOpcode::SinDeg => math_ops::sin_deg(state),
+        ScriptOpcode::CosDeg => math_ops::cos_deg(state),
+        ScriptOpcode::Atan2Deg => math_ops::atan2_deg(state),
+        ScriptOpcode::Abs => math_ops::abs(state),
         // DB ops (7500-7599)
         ScriptOpcode::DbFindWithCount
         | ScriptOpcode::DbFindNext
@@ -548,19 +552,20 @@ pub fn execute_command(engine: &Engine, state: &mut ScriptState, code: ScriptOpc
         | ScriptOpcode::DbFindRefine
         | ScriptOpcode::DbListAll => state.abort(format!("Unimplemented! {:?}", code)),
         // Debug ops (10000-11000)
-        ScriptOpcode::Error
-        | ScriptOpcode::MapProduction
-        | ScriptOpcode::MapLastClock
-        | ScriptOpcode::MapLastWorld
-        | ScriptOpcode::MapLastClientIn
-        | ScriptOpcode::MapLastNpc
-        | ScriptOpcode::MapLastPlayer
-        | ScriptOpcode::MapLastLogout
-        | ScriptOpcode::MapLastLogin
-        | ScriptOpcode::MapLastZone
-        | ScriptOpcode::MapLastClientOut
-        | ScriptOpcode::MapLastCleanup
-        | ScriptOpcode::MapLastBandwidthIn
-        | ScriptOpcode::MapLastBandwidthOut => perform_debug_operation(engine, state, code),
+        ScriptOpcode::Error => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::MapProduction => debug_ops::map_production(engine, state),
+        ScriptOpcode::MapLastClock => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::MapLastWorld => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::MapLastClientIn => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::MapLastNpc => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::MapLastPlayer => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::MapLastLogout => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::MapLastLogin => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::MapLastZone => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::MapLastClientOut => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::MapLastCleanup => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::MapLastBandwidthIn => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::MapLastBandwidthOut => state.abort(format!("Unimplemented! {:?}", code)),
+        _ => state.abort(format!("Unrecognised ops code: {:?}", code)),
     }
 }
