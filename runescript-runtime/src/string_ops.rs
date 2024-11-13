@@ -5,7 +5,7 @@ use crate::script::{ScriptOpcode, ScriptState};
 pub fn perform_string_operation(
     state: &mut ScriptState,
     code: ScriptOpcode,
-) -> Result<(), String> {
+) {
     return match code {
         ScriptOpcode::AppendNum => append_num(state),
         ScriptOpcode::Append => append(state),
@@ -20,28 +20,26 @@ pub fn perform_string_operation(
         ScriptOpcode::SubString => substring(state),
         ScriptOpcode::StringIndexOfChar => string_indexof_char(state),
         ScriptOpcode::StringIndexOfString => string_indexof_string(state),
-        _ => Err(format!("Unrecognised string ops code: {:?}", code)),
+        _ => state.abort(format!("Unrecognised string ops code: {:?}", code)),
     };
 }
 
 #[inline(always)]
-fn append_num(state: &mut ScriptState) -> Result<(), String> {
+fn append_num(state: &mut ScriptState) {
     let b: String = state.pop_string();
     let a: i32 = state.pop_int();
     state.push_string(b + &a.to_string());
-    return Ok(());
 }
 
 #[inline(always)]
-fn append(state: &mut ScriptState) -> Result<(), String> {
+fn append(state: &mut ScriptState) {
     let b: String = state.pop_string();
     let a: String = state.pop_string();
     state.push_string(a + &b);
-    return Ok(());
 }
 
 #[inline(always)]
-fn append_signnum(state: &mut ScriptState) -> Result<(), String> {
+fn append_signnum(state: &mut ScriptState) {
     let b: String = state.pop_string();
     let a: i32 = state.pop_int();
     if a >= 0 {
@@ -49,38 +47,39 @@ fn append_signnum(state: &mut ScriptState) -> Result<(), String> {
     } else {
         state.push_string(b + &a.to_string());
     }
-    return Ok(());
 }
 
 #[inline(always)]
-fn lowercase(state: &mut ScriptState) -> Result<(), String> {
+fn lowercase(state: &mut ScriptState) {
     let a: String = state.pop_string().to_ascii_lowercase();
     state.push_string(a);
-    return Ok(());
 }
 
 #[rustfmt::skip]
-    #[inline(always)]
-    fn text_gender(state: &mut ScriptState) -> Result<(), String> {
-        let female: String = state.pop_string();
-        let male: String = state.pop_string();
-        if state.get_active_player()?.gender() == 0 {
-            state.push_string(male);
-        } else {
-            state.push_string(female);
-        }
-        return Ok(());
-    }
-
 #[inline(always)]
-fn to_string(state: &mut ScriptState) -> Result<(), String> {
-    let a: i32 = state.pop_int();
-    state.push_string(a.to_string());
-    return Ok(());
+fn text_gender(state: &mut ScriptState) {
+    let female: String = state.pop_string();
+    let male: String = state.pop_string();
+    match state.get_active_player() {
+        Ok(player) => {
+            if player.gender() == 0 {
+                state.push_string(male);
+            } else {
+                state.push_string(female);
+            }
+        }
+        Err(err) => state.abort(err),
+    }
 }
 
 #[inline(always)]
-fn compare(state: &mut ScriptState) -> Result<(), String> {
+fn to_string(state: &mut ScriptState) {
+    let a: i32 = state.pop_int();
+    state.push_string(a.to_string());
+}
+
+#[inline(always)]
+fn compare(state: &mut ScriptState) {
     let b: String = state.pop_string();
     let a: String = state.pop_string();
     let len1: usize = a.len();
@@ -94,15 +93,14 @@ fn compare(state: &mut ScriptState) -> Result<(), String> {
         let code2: i32 = c2 as i32;
         if code1 != code2 {
             state.push_int(code1 - code2);
-            return Ok(());
+            return;
         }
     }
     state.push_int((len1 - len2) as i32);
-    return Ok(());
 }
 
 #[inline(always)]
-fn text_switch(state: &mut ScriptState) -> Result<(), String> {
+fn text_switch(state: &mut ScriptState) {
     let c: i32 = state.pop_int();
     let b: String = state.pop_string();
     let a: String = state.pop_string();
@@ -111,61 +109,57 @@ fn text_switch(state: &mut ScriptState) -> Result<(), String> {
     } else {
         state.push_string(b);
     }
-    return Ok(());
 }
 
 #[inline(always)]
-fn append_char(state: &mut ScriptState) -> Result<(), String> {
+fn append_char(state: &mut ScriptState) {
     let b: String = state.pop_string();
     let a: i32 = state.pop_int();
     if a == -1 {
-        return Err("null char".to_string());
+        return state.abort(String::from("null char"));
     }
-    if let Some(char) = std::char::from_u32((a & 0xffff) as u32) {
-        state.push_string(b + &char.to_string());
-        return Ok(());
+    match std::char::from_u32((a & 0xffff) as u32) {
+        None => state.abort(String::from("bad char")),
+        Some(char) => state.push_string(b + &char.to_string()),
     }
-    return Err("bad char".to_string());
 }
 
 #[inline(always)]
-fn string_length(state: &mut ScriptState) -> Result<(), String> {
+fn string_length(state: &mut ScriptState) {
     let a: String = state.pop_string();
     state.push_int(a.len() as i32);
-    return Ok(());
 }
 
 #[inline(always)]
-fn substring(state: &mut ScriptState) -> Result<(), String> {
+fn substring(state: &mut ScriptState) {
     let string: String = state.pop_string();
     let end: usize = state.pop_int() as usize;
     let start: usize = state.pop_int() as usize;
     state.push_string(string[start..end].to_string());
-    return Ok(());
 }
 
 #[inline(always)]
-fn string_indexof_char(state: &mut ScriptState) -> Result<(), String> {
+fn string_indexof_char(state: &mut ScriptState) {
     let b: String = state.pop_string();
     let a: i32 = state.pop_int();
     if a == -1 {
-        return Err("null char".to_string());
+        return state.abort(String::from("null char"));
     }
-    if let Some(char) = std::char::from_u32((a & 0xffff) as u32) {
-        state.push_int(
-            b.chars()
-                .position(|c| c == char)
-                .map_or(-1, |index| index as i32), // return -1 if not found.
-        );
-        return Ok(());
+    match std::char::from_u32((a & 0xffff) as u32) {
+        None => state.abort(String::from("bad char")),
+        Some(char) => {
+            state.push_int(
+                b.chars()
+                    .position(|c| c == char)
+                    .map_or(-1, |index| index as i32), // return -1 if not found.
+            );
+        }
     }
-    return Err("bad char".to_string());
 }
 
 #[inline(always)]
-fn string_indexof_string(state: &mut ScriptState) -> Result<(), String> {
+fn string_indexof_string(state: &mut ScriptState) {
     let b: String = state.pop_string();
     let a: String = state.pop_string();
     state.push_int(b.find(&a).map_or(-1, |index| index as i32)); // return -1 if not found.
-    return Ok(());
 }

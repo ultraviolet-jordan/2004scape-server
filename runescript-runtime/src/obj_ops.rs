@@ -27,45 +27,61 @@ pub fn perform_obj_operation(
     engine: &Engine,
     state: &mut ScriptState,
     code: ScriptOpcode,
-) -> Result<(), String> {
+) {
     return match code {
-        ScriptOpcode::ObjAdd => Err(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::ObjAdd => state.abort(format!("Unimplemented! {:?}", code)),
         ScriptOpcode::ObjAddAll => obj_addall(engine, state),
-        ScriptOpcode::ObjCoord => Err(format!("Unimplemented! {:?}", code)),
-        ScriptOpcode::ObjCount => Err(format!("Unimplemented! {:?}", code)),
-        ScriptOpcode::ObjDel => Err(format!("Unimplemented! {:?}", code)),
-        ScriptOpcode::ObjName => Err(format!("Unimplemented! {:?}", code)),
-        ScriptOpcode::ObjParam => Err(format!("Unimplemented! {:?}", code)),
-        ScriptOpcode::ObjTakeItem => Err(format!("Unimplemented! {:?}", code)),
-        ScriptOpcode::ObjType => Err(format!("Unimplemented! {:?}", code)),
-        ScriptOpcode::ObjFind => Err(format!("Unimplemented! {:?}", code)),
-        _ => Err(format!("Unrecognised obj ops code: {:?}", code)),
+        ScriptOpcode::ObjCoord => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::ObjCount => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::ObjDel => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::ObjName => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::ObjParam => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::ObjTakeItem => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::ObjType => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::ObjFind => state.abort(format!("Unimplemented! {:?}", code)),
+        _ => state.abort(format!("Unrecognised obj ops code: {:?}", code)),
     }
 }
 
 #[inline(always)]
-fn obj_addall(engine: &Engine, state: &mut ScriptState) -> Result<(), String> {
-    let duration: i32 = engine.check_duration(state.pop_int())?;
+fn obj_addall(engine: &Engine, state: &mut ScriptState) {
+    let duration: i32 = state.pop_int();
     let count: i32 = state.pop_int();
     let id: i32 = state.pop_int();
-    let coord: CoordGrid = engine.check_coord(state.pop_int())?;
+    let coord: i32 = state.pop_int();
+
+    let duration: i32 = match engine.check_duration(duration) {
+        Ok(duration) => duration,
+        Err(err) => return state.abort(err),
+    };
+
+    let coord: CoordGrid = match engine.check_coord(coord) {
+        Ok(coord) => coord,
+        Err(err) => return state.abort(err),
+    };
 
     if id == -1 || count == -1 {
-        return Ok(());
+        return;
     }
 
-    engine.check_obj_stack(count)?;
-    let obj_type: ObjType = engine.check_obj(id)?;
+    if let Err(err) = engine.check_obj_stack(count) {
+        return state.abort(err);
+    }
+
+    let obj_type: ObjType = match engine.check_obj(id) {
+        Ok(obj_type) => obj_type,
+        Err(err) => return state.abort(err),
+    };
 
     if obj_type.dummyitem() != 0 {
-        return Err(format!(
+        return state.abort(format!(
             "Attempted to add dummy item: {}",
             obj_type.debugname()
         ));
     }
 
     if obj_type.members() && !engine.map_members() {
-        return Ok(());
+        return;
     }
 
     let obj: Obj = engine.obj_addall(
@@ -79,5 +95,4 @@ fn obj_addall(engine: &Engine, state: &mut ScriptState) -> Result<(), String> {
     );
     state.set_active_obj(obj);
     state.pointer_add(ScriptState::ACTIVE_OBJ[state.int_operand()]);
-    return Ok(());
 }

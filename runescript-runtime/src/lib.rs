@@ -127,56 +127,30 @@ impl ScriptState {
             let codes: &Vec<u16> = self.opcodes();
             let len: usize = codes.len();
             if pc >= len as isize || pc < -1 {
-                throw_error(
-                    self,
-                    format!("Invalid program counter: {}, max expected: {}", pc, len).as_str(),
-                );
+                self.abort(format!(
+                    "Invalid program counter: {}, max expected: {}",
+                    pc, len
+                ));
                 return;
             }
             if opcount > 500_000 {
-                throw_error(self, "Too many instructions!");
+                self.abort(String::from("Too many instructions!"));
                 return;
             }
             let pc: isize = self.get_pc() + 1;
             let code: u16 = codes[pc as usize];
             self.set_opcount(opcount + 1);
             self.set_pc(pc);
-            if let Err(error) = unsafe { push_script(engine, self, ScriptOpcode::from(code)) } {
-                throw_error(self, error.as_str());
-                return;
-            }
+            execute_command(engine, self, ScriptOpcode::from(code))
         }
     }
 }
 
-pub fn throw_error(state: &mut ScriptState, message: &str) {
-    let file_name = state.get_script_file_name();
-    let script_name = state.get_script_name();
-    let line_number = state.script_line_number(state.get_pc());
-
-    state.set_execution_state(ScriptExecutionState::Aborted);
-    state.set_error(format!(
-        r#"
-        Script Error: {message}
-        File: {file_name}
-
-        1. {name} - {file_name}:{line}"#,
-        message = message,
-        file_name = file_name,
-        name = script_name,
-        line = line_number
-    ));
-}
-
 #[inline(always)]
-pub unsafe fn push_script(
-    engine: &Engine,
-    state: &mut ScriptState,
-    code: ScriptOpcode,
-) -> Result<(), String> {
+pub fn execute_command(engine: &Engine, state: &mut ScriptState, code: ScriptOpcode) {
     // info!("{:?}", code);
-    log(format!("{:?}", code).as_str());
-    log(format!("{:?}", state.get_script().name()).as_str());
+    // log(format!("{:?}", code).as_str());
+    // log(format!("{:?}", state.get_script().name()).as_str());
     match code {
         // Core language ops (0-99)
         ScriptOpcode::PushConstantInt
@@ -420,7 +394,7 @@ pub unsafe fn push_script(
         | ScriptOpcode::NpcWalk
         | ScriptOpcode::NpcAttackRange
         | ScriptOpcode::NpcHasOp
-        | ScriptOpcode::NpcArriveDelay => Err(format!("Unimplemented! {:?}", code)),
+        | ScriptOpcode::NpcArriveDelay => state.abort(format!("Unimplemented! {:?}", code)),
         // Loc ops (3000-3499)
         ScriptOpcode::LocAdd
         | ScriptOpcode::LocAngle
@@ -435,7 +409,7 @@ pub unsafe fn push_script(
         | ScriptOpcode::LocName
         | ScriptOpcode::LocParam
         | ScriptOpcode::LocShape
-        | ScriptOpcode::LocType => Err(format!("Unimplemented! {:?}", code)),
+        | ScriptOpcode::LocType => state.abort(format!("Unimplemented! {:?}", code)),
         // Obj ops (3500-4000)
         ScriptOpcode::ObjAdd
         | ScriptOpcode::ObjAddAll
@@ -453,7 +427,7 @@ pub unsafe fn push_script(
         | ScriptOpcode::NcDesc
         | ScriptOpcode::NcName
         | ScriptOpcode::NcOp
-        | ScriptOpcode::NcParam => Err(format!("Unimplemented! {:?}", code)),
+        | ScriptOpcode::NcParam => state.abort(format!("Unimplemented! {:?}", code)),
         // Loc config ops (4100-4199)
         ScriptOpcode::LcCategory
         | ScriptOpcode::LcDebugname
@@ -462,7 +436,7 @@ pub unsafe fn push_script(
         | ScriptOpcode::LcOp
         | ScriptOpcode::LcParam
         | ScriptOpcode::LcWidth
-        | ScriptOpcode::LcLength => Err(format!("Unimplemented! {:?}", code)),
+        | ScriptOpcode::LcLength => state.abort(format!("Unimplemented! {:?}", code)),
         // Obj config ops (4200-4299)
         ScriptOpcode::OcCategory
         | ScriptOpcode::OcCert
@@ -480,7 +454,7 @@ pub unsafe fn push_script(
         | ScriptOpcode::OcWearPos2
         | ScriptOpcode::OcWearPos3
         | ScriptOpcode::OcWearPos
-        | ScriptOpcode::OcWeight => Err(format!("Unimplemented! {:?}", code)),
+        | ScriptOpcode::OcWeight => state.abort(format!("Unimplemented! {:?}", code)),
         // Inventory ops (4300-4399)
         ScriptOpcode::InvAllStock
         | ScriptOpcode::InvSize
@@ -512,10 +486,10 @@ pub unsafe fn push_script(
         | ScriptOpcode::BothDropSlot
         | ScriptOpcode::InvDropAll
         | ScriptOpcode::InvTotalParam
-        | ScriptOpcode::InvTotalParamStack => Err(format!("Unimplemented! {:?}", code)),
+        | ScriptOpcode::InvTotalParamStack => state.abort(format!("Unimplemented! {:?}", code)),
         // Enum ops (4400-4499)
         ScriptOpcode::Enum | ScriptOpcode::EnumGetOutputCount => {
-            Err(format!("Unimplemented! {:?}", code))
+            state.abort(format!("Unimplemented! {:?}", code))
         }
         // String ops (4500-4599)
         ScriptOpcode::AppendNum
@@ -572,7 +546,7 @@ pub unsafe fn push_script(
         | ScriptOpcode::DbFindRefineWithCount
         | ScriptOpcode::DbFind
         | ScriptOpcode::DbFindRefine
-        | ScriptOpcode::DbListAll => Err(format!("Unimplemented! {:?}", code)),
+        | ScriptOpcode::DbListAll => state.abort(format!("Unimplemented! {:?}", code)),
         // Debug ops (10000-11000)
         ScriptOpcode::Error
         | ScriptOpcode::MapProduction

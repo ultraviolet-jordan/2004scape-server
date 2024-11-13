@@ -1018,10 +1018,10 @@ pub struct ScriptState {
     execution_state: ScriptExecutionState,
     pc: isize,    // program counter
     opcount: i32, // number of opcodes executed
-    frame_stack: Vec<GoSubFrame>,
-    fp: usize, // frame pointer
+    gosub_frame_stack: Vec<GoSubFrame>,
+    gosub_fp: usize, // gosub frame pointer
     goto_frame_stack: Vec<GoToFrame>,
-    goto_fp: usize,
+    goto_fp: usize, // goto frame pointer
     int_stack: Vec<i32>,
     isp: usize, // integer stack pointer
     string_stack: Vec<String>,
@@ -1084,10 +1084,10 @@ impl ScriptState {
     /// - Decrements the frame pointer (`fp`) to reflect returning to the previous frame.
     #[inline(always)]
     pub fn pop_frame(&mut self) -> Result<(), String> {
-        let frame: GoSubFrame = self.frame_stack.pop().ok_or("Stack is empty")?;
-        self.fp -= 1;
-        self.script = frame.script;
+        let frame: GoSubFrame = self.gosub_frame_stack.pop().ok_or("Stack is empty")?;
+        self.gosub_fp -= 1;
         self.pc = frame.pc;
+        self.script = frame.script;
         self.int_locals = frame.int_locals;
         self.string_locals = frame.string_locals;
         return Ok(());
@@ -1121,35 +1121,14 @@ impl ScriptState {
     /// - Initializes local integer and string variables by popping them from the respective stacks.
     #[inline(always)]
     pub fn gosub_frame(&mut self, script: ScriptFile) {
-        self.frame_stack.push(GoSubFrame {
+        self.gosub_frame_stack.push(GoSubFrame {
             script: self.script.clone(),
             pc: self.pc,
             int_locals: self.int_locals.clone(),
             string_locals: self.string_locals.clone(),
         });
-
-        self.fp += 1;
-        self.pc = -1;
-
-        self.int_locals.truncate(0);
-        if script.int_arg_count > 0 {
-            for i in (0..script.int_arg_count as usize).rev() {
-                let int: i32 = self.pop_int();
-                self.int_locals.push(int);
-            }
-            self.int_locals.reverse();
-        }
-
-        self.string_locals.truncate(0);
-        if script.string_arg_count > 0 {
-            for i in (0..script.string_arg_count as usize).rev() {
-                let string: String = self.pop_string();
-                self.string_locals.push(string);
-            }
-            self.string_locals.reverse();
-        }
-
-        self.script = script;
+        self.gosub_fp += 1;
+        self.new_program(script);
     }
 
     /// Jumps to a new goto frame without saving the current frame's context.
@@ -1181,36 +1160,35 @@ impl ScriptState {
             script: self.script.clone(),
             pc: self.pc,
         });
-
         self.goto_fp += 1;
-        self.frame_stack.truncate(0);
+        self.gosub_frame_stack.truncate(0);
+        self.gosub_fp = 0;
+        self.new_program(script);
+    }
 
-        self.fp = 0;
+    #[rustfmt::skip]
+    #[inline(always)]
+    pub fn new_program(&mut self, script: ScriptFile) {
+        let mut int_locals: Vec<i32> = vec![0; script.int_local_count as usize];
+        let int_arg_count: usize = script.int_arg_count as usize;
+        for index in 0..int_arg_count {
+            int_locals[int_arg_count - index - 1] = self.pop_int();
+        }
+
+        let mut string_locals: Vec<String> = vec![String::new(); script.string_local_count as usize];
+        let string_arg_count: usize = script.string_arg_count as usize;
+        for index in 0..string_arg_count {
+            string_locals[string_arg_count - index - 1] = self.pop_string();
+        }
+
         self.pc = -1;
-
-        self.int_locals.truncate(0);
-        if script.int_arg_count > 0 {
-            for i in (0..script.int_arg_count as usize).rev() {
-                let int: i32 = self.pop_int();
-                self.int_locals.push(int);
-            }
-            self.int_locals.reverse();
-        }
-
-        self.string_locals.truncate(0);
-        if script.string_arg_count > 0 {
-            for i in (0..script.string_arg_count as usize).rev() {
-                let string: String = self.pop_string();
-                self.string_locals.push(string);
-            }
-            self.string_locals.reverse();
-        }
-
         self.script = script;
+        self.int_locals = int_locals;
+        self.string_locals = string_locals;
     }
 
     #[inline(always)]
-    pub fn pop_args(&mut self) -> Result<Vec<JsValue>, String> {
+    pub fn pop_args(&mut self) -> Vec<JsValue> {
         let types: String = self.pop_string();
         let mut args: Vec<JsValue> = Vec::with_capacity(types.len());
         for char in types.chars().rev() {
@@ -1219,7 +1197,12 @@ impl ScriptState {
                 _ => JsValue::from(self.pop_int()),
             })
         }
-        return Ok(args);
+        return args;
+    }
+
+    #[inline(always)]
+    pub fn branch(&mut self, branch: isize) {
+        self.pc += branch;
     }
 
     /// Protects the execution flow based on pointer validation and executes a callback on success.
@@ -1248,15 +1231,15 @@ impl ScriptState {
     ///
     /// - The state may be modified by the `on_success` closure. The closure has full access to the mutable state.
     /// - The method does not alter any state if the pointer check fails or if an error is returned.
-    pub fn protect<F>(&mut self, pointers: &[ScriptPointer], on_success: F) -> Result<(), String>
+    pub fn protect<F>(&mut self, pointers: &[ScriptPointer], on_success: F)
     where
-        F: FnOnce(&mut ScriptState) -> Result<(), String>,
+        F: FnOnce(&mut ScriptState),
     {
         let pointer: ScriptPointer = pointers[self.int_operand()];
         if self.pointer_check(pointer) {
             return on_success(self);
         }
-        return Err(format!(
+        self.abort(format!(
             "Required pointer: {}, current: {}",
             self.pointer_print(1 << pointer as i32),
             self.pointer_print(self.pointers)
@@ -1383,21 +1366,25 @@ impl ScriptState {
 
     #[inline(always)]
     pub fn get_fp(&self) -> usize {
-        return self.fp;
+        return self.gosub_fp;
     }
 
+    #[inline(always)]
     pub fn get_isp(&self) -> usize {
         return self.isp;
     }
 
+    #[inline(always)]
     pub fn set_isp(&mut self, isp: usize) {
         self.isp = isp;
     }
 
+    #[inline(always)]
     pub fn get_ssp(&self) -> usize {
         return self.ssp;
     }
 
+    #[inline(always)]
     pub fn set_ssp(&mut self, ssp: usize) {
         self.ssp = ssp;
     }
@@ -1405,6 +1392,11 @@ impl ScriptState {
     #[inline(always)]
     pub fn get_int_locals(&mut self) -> &mut Vec<i32> {
         return &mut self.int_locals;
+    }
+
+    #[inline(always)]
+    pub fn get_string_locals(&mut self) -> &mut Vec<String> {
+        return &mut self.string_locals;
     }
 
     #[inline(always)]
@@ -1419,6 +1411,45 @@ impl ScriptState {
             }
         }
         return *self.script.info.lines.last().unwrap_or(&0);
+    }
+
+    #[inline(always)]
+    pub fn set_execution_state(&mut self, state: ScriptExecutionState) {
+        self.execution_state = state;
+    }
+
+    #[inline(always)]
+    pub fn get_pc(&self) -> isize {
+        return self.pc;
+    }
+
+    #[inline(always)]
+    pub fn set_pc(&mut self, pc: isize) {
+        self.pc = pc;
+    }
+
+    #[inline(always)]
+    pub fn set_opcount(&mut self, opcount: i32) {
+        self.opcount = opcount;
+    }
+
+    pub fn abort(&mut self, message: String) {
+        let file_name: String = self.get_script_file_name();
+        let script_name: &String = &self.script.info.name;
+        let line_number: i32 = self.script_line_number(self.pc);
+
+        self.execution_state = ScriptExecutionState::Aborted;
+        self.error = format!(
+            r#"
+            Script Error: {message}
+            File: {file_name}
+
+            1. {name} - {file_name}:{line}"#,
+            message = message,
+            file_name = file_name,
+            name = script_name,
+            line = line_number
+        );
     }
 }
 
@@ -1452,16 +1483,11 @@ impl ScriptState {
         int_args: Vec<i32>,
         string_args: Vec<String>,
     ) -> ScriptState {
-        let mut int_locals = vec![0; script.int_local_count as usize];
-        let mut string_locals = vec![String::new(); script.string_local_count as usize];
+        let mut int_locals: Vec<i32> = vec![0; script.int_local_count as usize];
+        let mut string_locals: Vec<String> = vec![String::new(); script.string_local_count as usize];
 
-        for i in 0..int_args.len() {
-            int_locals[i] = int_args[i];
-        }
-
-        for i in 0..string_args.len() {
-            string_locals[i] = string_args[i].clone();
-        }
+        int_locals[..int_args.len()].copy_from_slice(&int_args);
+        string_locals[..string_args.len()].clone_from_slice(&string_args);
 
         let trigger: u8 = script.lookup() as u8 & 0xff;
 
@@ -1470,8 +1496,8 @@ impl ScriptState {
             execution_state: ScriptExecutionState::Running,
             pc: -1,
             opcount: 0,
-            frame_stack: Vec::with_capacity(50),
-            fp: 0,
+            gosub_frame_stack: Vec::with_capacity(50),
+            gosub_fp: 0,
             goto_frame_stack: Vec::with_capacity(50),
             goto_fp: 0,
             int_stack: vec![0; 1000],
@@ -1499,7 +1525,7 @@ impl ScriptState {
     #[inline(always)]
     #[wasm_bindgen(method, js_name = intOperand)]
     pub fn int_operand(&self) -> usize {
-        return unsafe { *self.script.int_operands.as_ptr().add(self.pc as usize) };
+        return self.script.int_operands[self.pc as usize];
     }
 
     /// Pushes an `i32` value onto the integer stack.
@@ -1514,7 +1540,6 @@ impl ScriptState {
     #[inline(always)]
     #[wasm_bindgen(method, js_name = pushInt)]
     pub fn push_int(&mut self, value: i32) {
-        // self.int_stack.push(value);
         unsafe { *self.int_stack.as_mut_ptr().add(self.isp) = value };
         self.isp += 1;
     }
@@ -1531,9 +1556,7 @@ impl ScriptState {
     #[wasm_bindgen(method, js_name = popInt)]
     pub fn pop_int(&mut self) -> i32 {
         self.isp -= 1;
-        // return self.int_stack.get(self.isp).copied().unwrap_or(0);
         return unsafe { *self.int_stack.as_ptr().add(self.isp) };
-        // return self.int_stack.pop().unwrap_or(0);
     }
 
     // ---- strings
@@ -1557,9 +1580,8 @@ impl ScriptState {
     #[inline(always)]
     #[wasm_bindgen(method, js_name = pushString)]
     pub fn push_string(&mut self, value: String) {
-        self.string_stack[self.ssp] = value;
+        unsafe { *self.string_stack.as_mut_ptr().add(self.ssp) = value };
         self.ssp += 1;
-        // self.string_stack.push(value);
     }
 
     /// Pops the top string value from the string stack.
@@ -1574,8 +1596,7 @@ impl ScriptState {
     #[wasm_bindgen(method, js_name = popString)]
     pub fn pop_string(&mut self) -> String {
         self.ssp -= 1;
-        return self.string_stack[self.ssp].clone();
-        // return self.string_stack.pop().unwrap_or(String::new());
+        return unsafe { (*self.string_stack.as_ptr().add(self.ssp)).clone() };
     }
 
     // ---- pointers
@@ -1757,12 +1778,6 @@ impl ScriptState {
     }
 
     #[inline(always)]
-    #[wasm_bindgen(method, setter = execution)]
-    pub fn set_execution_state(&mut self, state: ScriptExecutionState) {
-        self.execution_state = state;
-    }
-
-    #[inline(always)]
     #[wasm_bindgen(method, getter = error)]
     pub fn get_error(&self) -> String {
         return self.error.clone();
@@ -1859,27 +1874,9 @@ impl ScriptState {
     }
 
     #[inline(always)]
-    #[wasm_bindgen(method, getter = pc)]
-    pub fn get_pc(&self) -> isize {
-        return self.pc;
-    }
-
-    #[inline(always)]
-    #[wasm_bindgen(method, setter = pc)]
-    pub fn set_pc(&mut self, pc: isize) {
-        self.pc = pc;
-    }
-
-    #[inline(always)]
     #[wasm_bindgen(method, getter = opcount)]
     pub fn get_opcount(&self) -> i32 {
         return self.opcount;
-    }
-
-    #[inline(always)]
-    #[wasm_bindgen(method, setter = opcount)]
-    pub fn set_opcount(&mut self, opcount: i32) {
-        self.opcount = opcount;
     }
 
     #[inline(always)]

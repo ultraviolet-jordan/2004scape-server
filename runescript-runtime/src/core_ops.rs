@@ -1,6 +1,6 @@
 use crate::player_ops::Player;
 use crate::script::{ScriptExecutionState, ScriptOpcode, ScriptState};
-use crate::{log, Engine};
+use crate::Engine;
 use wasm_bindgen::prelude::wasm_bindgen;
 use wasm_bindgen::{JsCast, JsValue};
 
@@ -32,63 +32,65 @@ pub fn perform_core_operation(
     engine: &Engine,
     state: &mut ScriptState,
     code: ScriptOpcode,
-) -> Result<(), String> {
+) {
     return match code {
         ScriptOpcode::PushConstantInt => push_constant_int(state),
         ScriptOpcode::PushVarp => push_varp(engine, state),
         ScriptOpcode::PopVarp => pop_varp(engine, state),
         ScriptOpcode::PushConstantString => push_constant_string(state),
-        ScriptOpcode::PushVarn => Err(format!("Unimplemented! {:?}", code)),
-        ScriptOpcode::PopVarn => Err(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::PushVarn => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::PopVarn => state.abort(format!("Unimplemented! {:?}", code)),
         ScriptOpcode::Branch => branch(state),
         ScriptOpcode::BranchNot => branch_not(state),
         ScriptOpcode::BranchEquals => branch_equals(state),
         ScriptOpcode::BranchLessThan => branch_less_than(state),
         ScriptOpcode::BranchGreaterThan => branch_greater_than(state),
-        ScriptOpcode::PushVars => Err(format!("Unimplemented! {:?}", code)),
-        ScriptOpcode::PopVars => Err(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::PushVars => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::PopVars => state.abort(format!("Unimplemented! {:?}", code)),
         ScriptOpcode::Return => _return(state),
         ScriptOpcode::GoSub => gosub(engine, state),
         ScriptOpcode::Jump => jump(engine, state),
         ScriptOpcode::Switch => switch(state),
-        ScriptOpcode::PushVarbit => Err(format!("Unimplemented! {:?}", code)),
-        ScriptOpcode::PopVarbit => Err(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::PushVarbit => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::PopVarbit => state.abort(format!("Unimplemented! {:?}", code)),
         ScriptOpcode::BranchLessThanOrEquals => branch_less_than_or_equals(state),
         ScriptOpcode::BranchGreaterThanOrEquals => branch_greater_than_or_equals(state),
         ScriptOpcode::PushIntLocal => push_int_local(state),
         ScriptOpcode::PopIntLocal => pop_int_local(state),
-        ScriptOpcode::PushStringLocal => Err(format!("Unimplemented! {:?}", code)),
-        ScriptOpcode::PopStringLocal => Err(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::PushStringLocal => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::PopStringLocal => state.abort(format!("Unimplemented! {:?}", code)),
         ScriptOpcode::JoinString => join_string(state),
         ScriptOpcode::PopIntDiscard => pop_int_discard(state),
         ScriptOpcode::PopStringDiscard => pop_string_discard(state),
         ScriptOpcode::GoSubWithParams => gosub_with_params(engine, state),
         ScriptOpcode::JumpWithParams => jump_with_params(engine, state),
-        ScriptOpcode::PushVarcInt => Err(format!("Unimplemented! {:?}", code)),
-        ScriptOpcode::PopVarcInt => Err(format!("Unimplemented! {:?}", code)),
-        ScriptOpcode::DefineArray => Err(format!("Unimplemented! {:?}", code)),
-        ScriptOpcode::PushArrayInt => Err(format!("Unimplemented! {:?}", code)),
-        ScriptOpcode::PopArrayInt => Err(format!("Unimplemented! {:?}", code)),
-        _ => Err(format!("Unrecognised core ops code: {:?}", code)),
+        ScriptOpcode::PushVarcInt => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::PopVarcInt => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::DefineArray => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::PushArrayInt => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::PopArrayInt => state.abort(format!("Unimplemented! {:?}", code)),
+        _ => state.abort(format!("Unrecognised core ops code: {:?}", code)),
     };
 }
 
 #[inline(always)]
-fn push_constant_int(state: &mut ScriptState) -> Result<(), String> {
+fn push_constant_int(state: &mut ScriptState) {
     state.push_int(state.int_operand() as i32);
-    return Ok(());
 }
 
 #[inline(always)]
-fn push_varp(engine: &Engine, state: &mut ScriptState) -> Result<(), String> {
+fn push_varp(engine: &Engine, state: &mut ScriptState) {
     let secondary: usize = state.int_operand() >> 16 & 0x1;
     if secondary == 1 && state.get_active_player2().is_null() {
-        return Err(String::from("No secondary active_player."));
+        return state.abort(String::from("No active_player."));
     } else if secondary == 0 && state.get_active_player1().is_null() {
-        return Err(String::from("No active_player."));
+        return state.abort(String::from("No active_player."));
     }
 
-    let varp_type: VarPlayerType = engine.check_varp((state.int_operand() & 0xffff) as i32)?;
+    let varp_type: VarPlayerType = match engine.check_varp((state.int_operand() & 0xffff) as i32) {
+        Ok(varp) => varp,
+        Err(err) => return state.abort(err),
+    };
     let player: &Player = if secondary == 1 {
         state.get_active_player2()
     } else {
@@ -97,31 +99,35 @@ fn push_varp(engine: &Engine, state: &mut ScriptState) -> Result<(), String> {
     if varp_type.is_string() {
         if let Some(str) = player.get_var(varp_type.id()).as_string() {
             state.push_string(str);
-        } else {
-            return Err(String::from("Expected a string varp value."));
+            return;
         }
+        state.abort(String::from("Expected a string varp value."));
     } else {
         if let Some(num) = player.get_var(varp_type.id()).as_f64() {
             state.push_int(num as i32);
-        } else {
-            return Err(String::from("Expected a numeric varp value."));
+            return;
         }
+        state.abort(String::from("Expected a numeric varp value."));
     }
-    return Ok(());
 }
 
 #[inline(always)]
-fn pop_varp(engine: &Engine, state: &mut ScriptState) -> Result<(), String> {
+fn pop_varp(engine: &Engine, state: &mut ScriptState) {
     let secondary: usize = state.int_operand() >> 16 & 0x1;
     if secondary == 1 && state.get_active_player2().is_null() {
-        return Err(String::from("No secondary active_player."));
+        state.abort(String::from("No secondary active_player."));
+        return;
     } else if secondary == 0 && state.get_active_player1().is_null() {
-        return Err(String::from("No active_player."));
+        state.abort(String::from("No active_player."));
+        return;
     }
 
-    let varp_type: VarPlayerType = engine.check_varp((state.int_operand() & 0xffff) as i32)?;
+    let varp_type: VarPlayerType = match engine.check_varp((state.int_operand() & 0xffff) as i32) {
+        Ok(varp) => varp,
+        Err(err) => return state.abort(err),
+    };
     if !state.pointer_get(ScriptState::PROTECTED_ACTIVE_PLAYER[secondary]) && varp_type.protect() {
-        return Err(format!(
+        return state.abort(format!(
             "&{} requires protected access",
             varp_type.debugname()
         ));
@@ -150,269 +156,230 @@ fn pop_varp(engine: &Engine, state: &mut ScriptState) -> Result<(), String> {
                 .set_var(varp_type.id(), JsValue::from(value));
         }
     }
-    return Ok(());
 }
 
 #[inline(always)]
-fn push_constant_string(state: &mut ScriptState) -> Result<(), String> {
+fn push_constant_string(state: &mut ScriptState) {
     state.push_string(state.string_operand());
-    return Ok(());
 }
 
 #[inline(always)]
-fn push_varn(_: &mut ScriptState) -> Result<(), String> {
-    return Err("Not implemented".to_string());
+fn push_varn(state: &mut ScriptState) {
+    state.abort(String::from("Unimplemented!"));
 }
 
 #[inline(always)]
-fn pop_varn(_: &mut ScriptState) -> Result<(), String> {
-    return Err("Not implemented".to_string());
+fn pop_varn(state: &mut ScriptState) {
+    state.abort(String::from("Unimplemented!"));
 }
 
 #[inline(always)]
-fn branch(state: &mut ScriptState) -> Result<(), String> {
-    state.set_pc(state.get_pc() + state.int_operand() as isize);
-    return Ok(());
+fn branch(state: &mut ScriptState) {
+    state.branch(state.int_operand() as isize);
 }
 
 #[inline(always)]
-fn branch_not(state: &mut ScriptState) -> Result<(), String> {
+fn branch_not(state: &mut ScriptState) {
     let b: i32 = state.pop_int();
     let a: i32 = state.pop_int();
     if a != b {
-        state.set_pc(state.get_pc() + state.int_operand() as isize);
+        state.branch(state.int_operand() as isize);
     }
-    return Ok(());
 }
 
 #[inline(always)]
-fn branch_equals(state: &mut ScriptState) -> Result<(), String> {
+fn branch_equals(state: &mut ScriptState) {
     let b: i32 = state.pop_int();
     let a: i32 = state.pop_int();
     if a == b {
-        state.set_pc(state.get_pc() + state.int_operand() as isize);
+        state.branch(state.int_operand() as isize);
     }
-    return Ok(());
 }
 
 #[inline(always)]
-fn branch_less_than(state: &mut ScriptState) -> Result<(), String> {
+fn branch_less_than(state: &mut ScriptState) {
     let b: i32 = state.pop_int();
     let a: i32 = state.pop_int();
     if a < b {
-        state.set_pc(state.get_pc() + state.int_operand() as isize);
+        state.branch(state.int_operand() as isize);
     }
-    return Ok(());
 }
 
 #[inline(always)]
-fn branch_greater_than(state: &mut ScriptState) -> Result<(), String> {
+fn branch_greater_than(state: &mut ScriptState) {
     let b: i32 = state.pop_int();
     let a: i32 = state.pop_int();
     if a > b {
-        state.set_pc(state.get_pc() + state.int_operand() as isize);
+        state.branch(state.int_operand() as isize);
     }
-    return Ok(());
 }
 
 #[inline(always)]
-fn push_vars(_: &mut ScriptState) -> Result<(), String> {
-    return Err("Not implemented".to_string());
+fn push_vars(state: &mut ScriptState) {
+    state.abort(String::from("Unimplemented!"));
 }
 
 #[inline(always)]
-fn pop_vars(_: &mut ScriptState) -> Result<(), String> {
-    return Err("Not implemented".to_string());
+fn pop_vars(state: &mut ScriptState) {
+    state.abort(String::from("Unimplemented!"));
 }
 
 #[inline(always)]
-fn _return(state: &mut ScriptState) -> Result<(), String> {
+fn _return(state: &mut ScriptState) {
     if state.get_fp() == 0 {
         state.set_execution_state(ScriptExecutionState::Finished);
-        return Ok(());
+    } else if let Err(err) = state.pop_frame() {
+        state.abort(err);
     }
-    return state.pop_frame();
 }
 
 #[inline(always)]
-fn gosub(engine: &Engine, state: &mut ScriptState) -> Result<(), String> {
+fn gosub(engine: &Engine, state: &mut ScriptState) {
     if state.get_fp() >= 50 {
-        return Err("stack overflow!".to_string());
+        return state.abort(String::from("stack overflow!"));
     }
     let script: i32 = state.pop_int();
-    if let Some(script) = engine.get_script(script as usize) {
-        state.gosub_frame(script);
-        return Ok(());
-    }
-    return Err(format!("[gosub] script {} not found!", script));
+    match engine.get_script(script as usize) {
+        None => state.abort(format!("[gosub] proc {} not found!", script)),
+        Some(proc) => state.gosub_frame(proc),
+    };
 }
 
 #[inline(always)]
-fn jump(engine: &Engine, state: &mut ScriptState) -> Result<(), String> {
+fn jump(engine: &Engine, state: &mut ScriptState) {
     let script: i32 = state.pop_int();
-    if let Some(script) = engine.get_script(script as usize) {
-        state.goto_frame(script);
-        return Ok(());
-    }
-    return Err(format!("[jump] script {} not found!", script));
+    match engine.get_script(script as usize) {
+        None => state.abort(format!("[jump] label {} not found!", script)),
+        Some(label) => state.goto_frame(label),
+    };
 }
 
 #[inline(always)]
-fn switch(state: &mut ScriptState) -> Result<(), String> {
+fn switch(state: &mut ScriptState) {
     let key: i32 = state.pop_int();
     if let Ok(Some(result)) = state.get_switch_table(key, state.int_operand()) {
-        state.set_pc(state.get_pc() + result as isize);
+        state.branch(result as isize);
     }
-    return Ok(());
 }
 
 #[inline(always)]
-fn push_varbit(_: &mut ScriptState) -> Result<(), String> {
-    return Err("Not implemented".to_string());
+fn push_varbit(state: &mut ScriptState) {
+    state.abort(String::from("Unimplemented!"));
 }
 
 #[inline(always)]
-fn pop_varbit(_: &mut ScriptState) -> Result<(), String> {
-    return Err("Not implemented".to_string());
+fn pop_varbit(state: &mut ScriptState) {
+    state.abort(String::from("Unimplemented!"));
 }
 
 #[inline(always)]
-fn branch_less_than_or_equals(state: &mut ScriptState) -> Result<(), String> {
+fn branch_less_than_or_equals(state: &mut ScriptState) {
     let b: i32 = state.pop_int();
     let a: i32 = state.pop_int();
     if a <= b {
-        state.set_pc(state.get_pc() + state.int_operand() as isize);
+        state.branch(state.int_operand() as isize);
     }
-    return Ok(());
 }
 
 #[inline(always)]
-fn branch_greater_than_or_equals(state: &mut ScriptState) -> Result<(), String> {
+fn branch_greater_than_or_equals(state: &mut ScriptState) {
     let b: i32 = state.pop_int();
     let a: i32 = state.pop_int();
     if a >= b {
-        state.set_pc(state.get_pc() + state.int_operand() as isize);
+        state.branch(state.int_operand() as isize);
     }
-    return Ok(());
 }
 
 #[inline(always)]
-fn push_int_local(state: &mut ScriptState) -> Result<(), String> {
+fn push_int_local(state: &mut ScriptState) {
     let operand: usize = state.int_operand();
     let local: i32 = unsafe { *state.get_int_locals().as_ptr().add(operand) };
     state.push_int(local);
-    return Ok(());
 }
 
 #[inline(always)]
-fn pop_int_local(state: &mut ScriptState) -> Result<(), String> {
+fn pop_int_local(state: &mut ScriptState) {
     let operand: usize = state.int_operand();
-    let local = state.pop_int();
-    log(format!(
-        "[pop_int_local] operand: {}, local: {}, locals: {}",
-        operand,
-        local,
-        state.get_int_locals().len()
-    )
-    .as_str());
-    state.get_int_locals()[operand] = local;
-    return Ok(());
-}
-
-// #[inline(always)]
-// fn pop_int_local(state: &mut ScriptState) -> Result<(), String> {
-//     let operand: usize = state.int_operand();
-//     let local = state.pop_int();
-//
-//     // Get a mutable reference to the vector of int locals
-//     let int_locals = state.get_int_locals();
-//
-//     // Check if the operand is out of bounds and resize the vector if needed
-//     if operand >= int_locals.len() {
-//         int_locals.resize(operand + 1, 0); // Resizes and fills new slots with 0
-//     }
-//
-//     int_locals[operand] = local;
-//     Ok(())
-// }
-
-#[inline(always)]
-fn push_string_local(_: &mut ScriptState) -> Result<(), String> {
-    return Err("Not implemented".to_string());
+    let local: i32 = state.pop_int();
+    unsafe { *state.get_int_locals().as_mut_ptr().add(operand) = local }
 }
 
 #[inline(always)]
-fn pop_string_local(_: &mut ScriptState) -> Result<(), String> {
-    return Err("Not implemented".to_string());
+fn push_string_local(state: &mut ScriptState) {
+    let operand: usize = state.int_operand();
+    let local: String = unsafe { (*state.get_string_locals().as_ptr().add(operand)).clone() };
+    state.push_string(local);
 }
 
 #[inline(always)]
-fn join_string(state: &mut ScriptState) -> Result<(), String> {
+fn pop_string_local(state: &mut ScriptState) {
+    let operand: usize = state.int_operand();
+    let local: String = state.pop_string();
+    unsafe { *state.get_string_locals().as_mut_ptr().add(operand) = local }
+}
+
+#[inline(always)]
+fn join_string(state: &mut ScriptState) {
     let count: usize = state.int_operand();
     let mut result: String = String::new();
     for _ in 0..count {
         result = state.pop_string() + &result;
     }
     state.push_string(result);
-    return Ok(());
 }
 
 #[inline(always)]
-fn pop_int_discard(state: &mut ScriptState) -> Result<(), String> {
+fn pop_int_discard(state: &mut ScriptState) {
     state.set_isp(state.get_isp() - 1);
-    return Ok(());
 }
 
 #[inline(always)]
-fn pop_string_discard(state: &mut ScriptState) -> Result<(), String> {
+fn pop_string_discard(state: &mut ScriptState) {
     state.set_ssp(state.get_ssp() - 1);
-    return Ok(());
 }
 
 #[inline(always)]
-fn gosub_with_params(engine: &Engine, state: &mut ScriptState) -> Result<(), String> {
+fn gosub_with_params(engine: &Engine, state: &mut ScriptState) {
     if state.get_fp() >= 50 {
-        return Err("stack overflow!".to_string());
+        return state.abort(String::from("stack overflow!"));
     }
     let script: usize = state.int_operand();
-    if let Some(script) = engine.get_script(script) {
-        state.gosub_frame(script);
-        return Ok(());
-    }
-    return Err(format!("[gosub_with_params] script {} not found!", script));
+    match engine.get_script(script) {
+        None => state.abort(format!("[gosub_with_params] proc {} not found!", script)),
+        Some(proc) => state.gosub_frame(proc),
+    };
 }
 
 #[inline(always)]
-fn jump_with_params(engine: &Engine, state: &mut ScriptState) -> Result<(), String> {
+fn jump_with_params(engine: &Engine, state: &mut ScriptState) {
     let script: usize = state.int_operand();
-    if let Some(script) = engine.get_script(script) {
-        state.goto_frame(script);
-        return Ok(());
-    }
-    return Err(format!("[jump_with_params] script {} not found!", script));
+    match engine.get_script(script) {
+        None => state.abort(format!("[jump_with_params] label {} not found!", script)),
+        Some(label) => state.goto_frame(label),
+    };
 }
 
 #[inline(always)]
-fn push_varc(_: &mut ScriptState) -> Result<(), String> {
-    return Err("Not implemented".to_string());
+fn push_varc(state: &mut ScriptState) {
+    state.abort(String::from("Unimplemented!"));
 }
 
 #[inline(always)]
-fn pop_varc(_: &mut ScriptState) -> Result<(), String> {
-    return Err("Not implemented".to_string());
+fn pop_varc(state: &mut ScriptState) {
+    state.abort(String::from("Unimplemented!"));
 }
 
 #[inline(always)]
-fn define_array(_: &mut ScriptState) -> Result<(), String> {
-    return Err("Not implemented".to_string());
+fn define_array(state: &mut ScriptState) {
+    state.abort(String::from("Unimplemented!"));
 }
 
 #[inline(always)]
-fn push_array_int(_: &mut ScriptState) -> Result<(), String> {
-    return Err("Not implemented".to_string());
+fn push_array_int(state: &mut ScriptState) {
+    state.abort(String::from("Unimplemented!"));
 }
 
 #[inline(always)]
-fn pop_array_int(_: &mut ScriptState) -> Result<(), String> {
-    return Err("Not implemented".to_string());
+fn pop_array_int(state: &mut ScriptState) {
+    state.abort(String::from("Unimplemented!"));
 }

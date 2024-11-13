@@ -7,28 +7,27 @@ pub fn perform_debug_operation(
     engine: &Engine,
     state: &mut ScriptState,
     code: ScriptOpcode,
-) -> Result<(), String> {
+) {
     return match code {
-        ScriptOpcode::Error => Err(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::Error => state.abort(format!("Unimplemented! {:?}", code)),
         ScriptOpcode::MapProduction => map_production(engine, state),
-        ScriptOpcode::MapLastClock => Err(format!("Unimplemented! {:?}", code)),
-        ScriptOpcode::MapLastWorld => Err(format!("Unimplemented! {:?}", code)),
-        ScriptOpcode::MapLastClientIn => Err(format!("Unimplemented! {:?}", code)),
-        ScriptOpcode::MapLastNpc => Err(format!("Unimplemented! {:?}", code)),
-        ScriptOpcode::MapLastPlayer => Err(format!("Unimplemented! {:?}", code)),
-        ScriptOpcode::MapLastLogout => Err(format!("Unimplemented! {:?}", code)),
-        ScriptOpcode::MapLastLogin => Err(format!("Unimplemented! {:?}", code)),
-        ScriptOpcode::MapLastZone => Err(format!("Unimplemented! {:?}", code)),
-        ScriptOpcode::MapLastClientOut => Err(format!("Unimplemented! {:?}", code)),
-        ScriptOpcode::MapLastCleanup => Err(format!("Unimplemented! {:?}", code)),
-        ScriptOpcode::MapLastBandwidthIn => Err(format!("Unimplemented! {:?}", code)),
-        ScriptOpcode::MapLastBandwidthOut => Err(format!("Unimplemented! {:?}", code)),
-        _ => Err(format!("Unrecognised debug ops code: {:?}", code)),
+        ScriptOpcode::MapLastClock => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::MapLastWorld => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::MapLastClientIn => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::MapLastNpc => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::MapLastPlayer => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::MapLastLogout => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::MapLastLogin => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::MapLastZone => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::MapLastClientOut => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::MapLastCleanup => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::MapLastBandwidthIn => state.abort(format!("Unimplemented! {:?}", code)),
+        ScriptOpcode::MapLastBandwidthOut => state.abort(format!("Unimplemented! {:?}", code)),
+        _ => state.abort(format!("Unrecognised debug ops code: {:?}", code)),
     };
 }
 
 #[inline(always)]
-fn map_production(engine: &Engine, state: &mut ScriptState) -> Result<(), String> {
+fn map_production(engine: &Engine, state: &mut ScriptState) {
     state.push_int(engine.map_production() as i32);
-    return Ok(());
 }
