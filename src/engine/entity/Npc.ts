@@ -69,8 +69,8 @@ export default class Npc extends PathingEntity {
     huntrange: number = 0;
 
     nextPatrolTick: number = -1;
-    nextPatrolPoint : number = 0;
-    delayedPatrol : boolean = false;
+    nextPatrolPoint: number = 0;
+    delayedPatrol: boolean = false;
 
     lastWanderTick: number = 0;
 
@@ -156,33 +156,39 @@ export default class Npc extends PathingEntity {
     }
 
     updateMovement(repathAllowed: boolean = true): boolean {
-        const type = NpcType.get(this.type);
         if (!this.targetWithinMaxRange()) {
             this.defaultMode();
             return false;
         }
-        if (type.moverestrict === MoveRestrict.NOMOVE) {
-            return false;
-        }
-        if (repathAllowed && this.target instanceof PathingEntity && !this.interacted && this.walktrigger === -1) {
-            this.pathToPathingTarget();
-        }
-        if (this.walktrigger !== -1) {
-            const type = NpcType.get(this.type);
-            const script = ScriptProvider.getByTrigger(ServerTriggerType.AI_QUEUE1 + this.walktrigger, type.id, type.category);
-            this.walktrigger = -1;
 
-            if (script) {
-                const state = ScriptRunner.init(script, this, null, [this.walktriggerArg]);
-                ScriptRunner.execute(state);
+        const type = NpcType.get(this.type);
+
+        if (type.moverestrict !== MoveRestrict.NOMOVE) {
+            if (repathAllowed && this.target instanceof PathingEntity && !this.interacted && this.walktrigger === -1) {
+                this.pathToPathingTarget();
+            }
+            if (this.walktrigger !== -1) {
+                const type = NpcType.get(this.type);
+                const script = ScriptProvider.getByTrigger(ServerTriggerType.AI_QUEUE1 + this.walktrigger, type.id, type.category);
+                this.walktrigger = -1;
+
+                if (script) {
+                    const state = ScriptRunner.init(script, this, null, [this.walktriggerArg]);
+                    ScriptRunner.execute(state);
+                }
+            }
+            if (this.moveSpeed !== MoveSpeed.INSTANT) {
+                this.moveSpeed = this.defaultMoveSpeed();
+            }
+            if (!super.processMovement()) {
+                // nothing
             }
         }
-        if (this.moveSpeed !== MoveSpeed.INSTANT) {
-            this.moveSpeed = this.defaultMoveSpeed();
-        }
 
-        if (!super.processMovement()) {
-            // nothing
+        // update the orientation every tick when we have a pathing entity target.
+        if (this.target instanceof PathingEntity) {
+            this.orientationX = this.target.x * 2 + this.target.width;
+            this.orientationZ = this.target.z * 2 + this.target.length;
         }
 
         const moved = this.lastTickX !== this.x || this.lastTickZ !== this.z;
@@ -215,10 +221,10 @@ export default class Npc extends PathingEntity {
         const type = NpcType.get(this.type);
 
         const apTrigger: boolean =
-        (this.targetOp >= NpcMode.APNPC1 && this.targetOp <= NpcMode.APNPC5) ||
-        (this.targetOp >= NpcMode.APPLAYER1 && this.targetOp <= NpcMode.APPLAYER5) ||
-        (this.targetOp >= NpcMode.APLOC1 && this.targetOp <= NpcMode.APLOC5) ||
-        (this.targetOp >= NpcMode.APOBJ1 && this.targetOp <= NpcMode.APOBJ5);
+            (this.targetOp >= NpcMode.APNPC1 && this.targetOp <= NpcMode.APNPC5) ||
+            (this.targetOp >= NpcMode.APPLAYER1 && this.targetOp <= NpcMode.APPLAYER5) ||
+            (this.targetOp >= NpcMode.APLOC1 && this.targetOp <= NpcMode.APLOC5) ||
+            (this.targetOp >= NpcMode.APOBJ1 && this.targetOp <= NpcMode.APOBJ5);
         const opTrigger: boolean = !apTrigger;
         if (opTrigger) {
             const distanceToX = Math.abs(this.target.x - this.startX);
@@ -228,11 +234,11 @@ export default class Npc extends PathingEntity {
             }
             // remove corner
             if (distanceToX === type.maxrange + 1 && distanceToZ === type.maxrange + 1) {
-                return false; 
+                return false;
             }
         } else if (apTrigger) {
             if (CoordGrid.distanceToSW(this.target, {x: this.startX, z: this.startZ}) > type.maxrange + type.attackrange) {
-                return false; 
+                return false;
             }
         } else if (this.targetOp === NpcMode.PLAYERESCAPE) {
             const distanceToEscape = CoordGrid.distanceTo(this, {
@@ -328,7 +334,6 @@ export default class Npc extends PathingEntity {
                     this.levels[index]--;
                 }
             }
-
         }
     }
 
@@ -444,17 +449,18 @@ export default class Npc extends PathingEntity {
         let dest = CoordGrid.unpackCoord(patrolPoints[this.nextPatrolPoint]);
 
         this.updateMovement(false);
-        if (!this.hasWaypoints() && !this.target) { // requeue waypoints in cases where an npc was interacting and the interaction has been cleared
+        if (!this.hasWaypoints() && !this.target) {
+            // requeue waypoints in cases where an npc was interacting and the interaction has been cleared
             this.queueWaypoint(dest.x, dest.z);
         }
-        if(!(this.x === dest.x && this.z === dest.z) && World.currentTick >= this.nextPatrolTick) {
+        if (!(this.x === dest.x && this.z === dest.z) && World.currentTick >= this.nextPatrolTick) {
             this.teleport(dest.x, dest.z, dest.level);
         }
-        if ((this.x === dest.x && this.z === dest.z) && !this.delayedPatrol) {
+        if (this.x === dest.x && this.z === dest.z && !this.delayedPatrol) {
             this.nextPatrolTick = World.currentTick + patrolDelay;
             this.delayedPatrol = true;
         }
-        if(this.nextPatrolTick > World.currentTick) {
+        if (this.nextPatrolTick > World.currentTick) {
             return;
         }
 

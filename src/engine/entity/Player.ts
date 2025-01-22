@@ -496,6 +496,12 @@ export default class Player extends PathingEntity {
             this.tempRun = 0;
         }
 
+        // update the orientation every tick when we have a pathing entity target.
+        if (this.target instanceof PathingEntity) {
+            this.orientationX = this.target.x * 2 + this.target.width;
+            this.orientationZ = this.target.z * 2 + this.target.length;
+        }
+
         const moved = this.lastTickX !== this.x || this.lastTickZ !== this.z;
         this.drainEnergy(moved);
         this.recoverEnergy(moved);
