@@ -1,5 +1,6 @@
 enum ReportEvent {
     NO_REPORT,
+    SUSSY_MOUSE,
     ACTIVE,
 }
 

@@ -3,6 +3,7 @@ import EventTracking from '#/network/client/model/EventTracking.js';
 import Player from '#/engine/entity/Player.js';
 import Packet from '#/io/Packet.js';
 import ReportEvent from '#/engine/entity/tracking/ReportEvent.js';
+import InputTracking from '#/engine/entity/tracking/InputTracking.js';
 
 enum InputTrackingEvent {
     MOUSEDOWNL = 1,
@@ -26,26 +27,27 @@ export default class EventTrackingHandler extends MessageHandler<EventTracking> 
         if (bytes.length === 0 || bytes.length > 5000) {
             return false;
         }
-        if (!player.input.tracking()) {
+        const input: InputTracking = player.input;
+        if (!input.tracking()) {
             return false;
         }
         const buf: Packet = new Packet(bytes);
-        while (buf.available > 0 && player.input.tracking()) {
+        while (buf.available > 0 && input.tracking()) {
             const event: number = buf.g1();
             if (event === InputTrackingEvent.MOUSEDOWNL || event === InputTrackingEvent.MOUSEDOWNR) {
-                this.onmousedown(player, buf);
+                this.onmousedown(input, buf);
             } else if (event === InputTrackingEvent.MOUSEUPL || event === InputTrackingEvent.MOUSEUPR) {
-                this.onmouseup(player, buf);
+                this.onmouseup(input, buf);
             } else if (event === InputTrackingEvent.MOUSEMOVE1) {
-                this.onmousemove(player, buf, 1);
+                this.onmousemove(input, buf, 1);
             } else if (event === InputTrackingEvent.MOUSEMOVE2) {
-                this.onmousemove(player, buf, 2);
+                this.onmousemove(input, buf, 2);
             } else if (event === InputTrackingEvent.MOUSEMOVE3) {
-                this.onmousemove(player, buf, 3);
+                this.onmousemove(input, buf, 3);
             } else if (event === InputTrackingEvent.KEYDOWN) {
-                this.onkeydown(player, buf);
+                this.onkeydown(input, buf);
             } else if (event === InputTrackingEvent.KEYUP) {
-                this.onkeyup(player, buf);
+                this.onkeyup(input, buf);
             } else if (event === InputTrackingEvent.FOCUS) {
                 this.onfocus(buf);
             } else if (event === InputTrackingEvent.BLUR) {
@@ -53,7 +55,7 @@ export default class EventTrackingHandler extends MessageHandler<EventTracking> 
             } else if (event === InputTrackingEvent.MOUSEENTER) {
                 this.onmouseenter(buf);
             } else if (event === InputTrackingEvent.MOUSELEAVE) {
-                this.onmouseleave(player, buf);
+                this.onmouseleave(input, buf);
             } else {
                 break;
             }
@@ -61,64 +63,74 @@ export default class EventTrackingHandler extends MessageHandler<EventTracking> 
         return true;
     }
 
-    onmousedown(player: Player, buf: Packet): void {
-        buf.pos += 1; // time
-        buf.pos += 3; // position
+    onmousedown(input: InputTracking, buf: Packet): void {
+        const time: number = buf.g1();
+        const pos: number = buf.g3();
+        const x: number = pos & 0x3ff;
+        const y: number = (pos >> 10) & 0x3ff;
+        input.onmousedown(time, x, y);
 
-        if (player.input.enabled) {
-            player.input.disable(true);
-        } else {
-            player.input.report(ReportEvent.ACTIVE);
-        }
+        // if (input.enabled) {
+        //     input.disable(true);
+        // } else {
+        //     input.report(ReportEvent.ACTIVE);
+        // }
     }
 
-    onmouseup(player: Player, buf: Packet): void {
+    onmouseup(input: InputTracking, buf: Packet): void {
         buf.pos += 1; // time
 
-        if (player.input.enabled) {
-            player.input.disable(true);
-        } else {
-            player.input.report(ReportEvent.ACTIVE);
-        }
+        // if (input.enabled) {
+        //     input.disable(true);
+        // } else {
+        //     input.report(ReportEvent.ACTIVE);
+        // }
     }
 
-    onmousemove(player: Player, buf: Packet, op: number): void {
-        buf.pos += 1; // time
+    onmousemove(input: InputTracking, buf: Packet, op: number): void {
+        const time: number = buf.g1();
         if (op === 1) {
-            buf.pos += 1; // position
+            const pos: number = buf.g1();
+            const x: number = (pos & 0xf) - 8;
+            const y: number = ((pos >> 4) & 0xf) - 8;
+            input.onmousemove(1, time, x, y);
         } else if (op === 2) {
-            buf.pos += 1; // x
-            buf.pos += 1; // y
+            const x = buf.g1();
+            const y = buf.g1();
+            input.onmousemove(2, time, x, y);
         } else if (op === 3) {
-            buf.pos += 3; // position
+            const pos: number = buf.g3();
+            const x: number = pos & 0x3ff;
+            const y: number = (pos >> 10) & 0x3ff;
+            input.onmousemove(3, time, x, y);
         }
 
-        if (player.input.enabled) {
-            player.input.disable(true);
-        } else {
-            player.input.report(ReportEvent.ACTIVE);
-        }
+        // if (input.enabled) {
+        //     input.disable(true);
+        // } else {
+        //     input.report(ReportEvent.ACTIVE);
+        // }
     }
 
-    onkeydown(player: Player, buf: Packet): void {
+    onkeydown(input: InputTracking, buf: Packet): void {
         buf.pos += 1; // time
         buf.pos += 1; // key
 
-        if (player.input.enabled) {
-            player.input.disable(true);
+        if (input.enabled) {
+            input.disable(true);
         } else {
-            player.input.report(ReportEvent.ACTIVE);
+            input.report(ReportEvent.ACTIVE);
         }
     }
 
-    onkeyup(player: Player, buf: Packet): void {
+    onkeyup(input: InputTracking, buf: Packet): void {
         buf.pos += 1; // time
         buf.pos += 1; // key
 
-        if (player.input.enabled) {
-            player.input.disable(true);
+        if (input.enabled) {
+            input.disable(true);
         } else {
-            player.input.report(ReportEvent.ACTIVE);
+            input.report(ReportEvent.ACTIVE);
         }
     }
 
@@ -134,13 +146,13 @@ export default class EventTrackingHandler extends MessageHandler<EventTracking> 
         buf.pos += 1; // time
     }
 
-    onmouseleave(player: Player, buf: Packet): void {
+    onmouseleave(input: InputTracking, buf: Packet): void {
         buf.pos += 1; // time
 
-        if (player.input.enabled) {
-            player.input.disable(true);
+        if (input.enabled) {
+            input.disable(true);
         } else {
-            player.input.report(ReportEvent.ACTIVE);
+            input.report(ReportEvent.ACTIVE);
         }
     }
 }

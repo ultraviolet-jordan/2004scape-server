@@ -12,6 +12,10 @@ import LoggerEventType from '#/server/logger/LoggerEventType.js';
 
 export default class OpHeldUHandler extends MessageHandler<OpHeldU> {
     handle(message: OpHeldU, player: Player): boolean {
+        if (player.input.enabled) {
+            player.input.trackOpHeldClick();
+        }
+
         const { obj: item, slot, component: comId, useObj: useItem, useSlot, useComponent: useComId } = message;
         if (player.delayed) {
             return false;
