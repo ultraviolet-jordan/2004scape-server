@@ -6,6 +6,7 @@ import World from '#/engine/World.js';
 import { NetworkPlayer } from '#/engine/entity/NetworkPlayer.js';
 import OpNpc from '#/network/client/model/OpNpc.js';
 import UnsetMapFlag from '#/network/server/model/UnsetMapFlag.js';
+import * as rsbuf from '@2004scape/rsbuf/dist/rsbuf.js';
 
 export default class OpNpcHandler extends MessageHandler<OpNpc> {
     handle(message: OpNpc, player: NetworkPlayer): boolean {
@@ -23,7 +24,7 @@ export default class OpNpcHandler extends MessageHandler<OpNpc> {
             return false;
         }
 
-        if (!player.buildArea.npcs.has(npc)) {
+        if (!rsbuf.hasNpc(player.pid, npc.nid)) {
             player.write(new UnsetMapFlag());
             player.clearPendingAction();
             return false;

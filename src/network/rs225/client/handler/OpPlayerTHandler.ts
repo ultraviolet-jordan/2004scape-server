@@ -6,6 +6,7 @@ import Interaction from '#/engine/entity/Interaction.js';
 import ServerTriggerType from '#/engine/script/ServerTriggerType.js';
 import { NetworkPlayer } from '#/engine/entity/NetworkPlayer.js';
 import UnsetMapFlag from '#/network/server/model/UnsetMapFlag.js';
+import * as rsbuf from '@2004scape/rsbuf/dist/rsbuf.js';
 
 export default class OpPlayerTHandler extends MessageHandler<OpPlayerT> {
     handle(message: OpPlayerT, player: NetworkPlayer): boolean {
@@ -30,7 +31,7 @@ export default class OpPlayerTHandler extends MessageHandler<OpPlayerT> {
             return false;
         }
 
-        if (!player.buildArea.players.has(other)) {
+        if (!rsbuf.hasPlayer(player.pid, other.pid)) {
             player.write(new UnsetMapFlag());
             player.clearPendingAction();
             return false;

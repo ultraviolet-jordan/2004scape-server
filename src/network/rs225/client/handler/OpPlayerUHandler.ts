@@ -8,6 +8,7 @@ import OpPlayerU from '#/network/client/model/OpPlayerU.js';
 import Component from '#/cache/config/Component.js';
 import Environment from '#/util/Environment.js';
 import UnsetMapFlag from '#/network/server/model/UnsetMapFlag.js';
+import * as rsbuf from '@2004scape/rsbuf/dist/rsbuf.js';
 
 export default class OpPlayerUHandler extends MessageHandler<OpPlayerU> {
     handle(message: OpPlayerU, player: NetworkPlayer): boolean {
@@ -46,7 +47,7 @@ export default class OpPlayerUHandler extends MessageHandler<OpPlayerU> {
             return false;
         }
 
-        if (!player.buildArea.players.has(other)) {
+        if (!rsbuf.hasPlayer(player.pid, other.pid)) {
             player.write(new UnsetMapFlag());
             player.clearPendingAction();
             return false;

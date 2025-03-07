@@ -22,6 +22,8 @@ type ClientWrapper = {
 
 const clients: ClientWrapper[] = [];
 
+let lastClick: number = -1; // i want this to be so all clients click together
+
 function connectTcp(username: string, host = '127.0.0.1', port = 43594) {
     try {
         const socket = net.createConnection({
@@ -90,12 +92,26 @@ function connectTcp(username: string, host = '127.0.0.1', port = 43594) {
                     state = 1;
 
                     clients.push(client);
+
+                    // on login
+                    // const x = Math.floor(Math.random() * 32) + 3200;
+                    // const z = Math.floor(Math.random() * 32) + 3200;
+                    // const command = `::tele ${x} ${z}`;
+                    // const buf: Packet = Packet.alloc(0);
+                    // buf.p1((4 + (client.decryptor?.nextInt() ?? 0)) & 0xff);
+                    // buf.p1(command.length - 1);
+                    // buf.pjstr(command.substring(2));
+                    // const data = new Uint8Array(buf.pos);
+                    // buf.pos = 0;
+                    // buf.gdata(data, 0, data.length);
+                    // buf.release();
+                    // client.socket.write(data);
                 }
             }
         });
 
         socket.on('error', () => {});
-    } catch (_) {  // eslint-disable-line @typescript-eslint/no-unused-vars
+    } catch (err) {
         // no-op
     }
 }
@@ -111,6 +127,18 @@ function cycle() {
             continue;
         }
 
+        if (Date.now() - lastClick > 600) {
+            // IF_BUTTON (dance)
+            const buf: Packet = Packet.alloc(0);
+            buf.p1((155 + (client.decryptor?.nextInt() ?? 0)) & 0xff);
+            buf.p2(166);
+            const data = new Uint8Array(buf.pos);
+            buf.pos = 0;
+            buf.gdata(data, 0, data.length);
+            buf.release();
+            client.socket.write(data);
+        }
+
         /*if (Date.now() - client.lastSent > 1000) {
             // NO_TIMEOUT
             if (client.encryptor) {
@@ -122,15 +150,16 @@ function cycle() {
                     108
                 ]));
             }
-
             client.lastSent = Date.now();
         }*/
     }
-
+    if (Date.now() - lastClick > 600) {
+        lastClick = Date.now();
+    }
     setTimeout(cycle, 100);
 }
 
-for (let i = 0; i < 1990; i++) {
+for (let i = 0; i < 3000; i++) {
     connectTcp('bot' + i);
 }
 

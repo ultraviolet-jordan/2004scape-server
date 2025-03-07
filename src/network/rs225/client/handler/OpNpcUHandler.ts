@@ -8,6 +8,7 @@ import ServerTriggerType from '#/engine/script/ServerTriggerType.js';
 import { NetworkPlayer } from '#/engine/entity/NetworkPlayer.js';
 import Environment from '#/util/Environment.js';
 import UnsetMapFlag from '#/network/server/model/UnsetMapFlag.js';
+import * as rsbuf from '@2004scape/rsbuf/dist/rsbuf.js';
 
 export default class OpNpcUHandler extends MessageHandler<OpNpcU> {
     handle(message: OpNpcU, player: NetworkPlayer): boolean {
@@ -46,7 +47,7 @@ export default class OpNpcUHandler extends MessageHandler<OpNpcU> {
             return false;
         }
 
-        if (!player.buildArea.npcs.has(npc)) {
+        if (!rsbuf.hasNpc(player.pid, npc.nid)) {
             player.write(new UnsetMapFlag());
             player.clearPendingAction();
             return false;

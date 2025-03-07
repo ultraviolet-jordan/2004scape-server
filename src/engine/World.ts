@@ -28,11 +28,11 @@ import StructType from '#/cache/config/StructType.js';
 import VarNpcType from '#/cache/config/VarNpcType.js';
 import VarPlayerType from '#/cache/config/VarPlayerType.js';
 import VarSharedType from '#/cache/config/VarSharedType.js';
+import ScriptVarType from '#/cache/config/ScriptVarType.js';
 import WordEnc from '#/cache/wordenc/WordEnc.js';
 import { CrcBuffer32, makeCrcs, makeCrcsAsync } from '#/cache/CrcTable.js';
 import { preloadClient, preloadClientAsync } from '#/cache/PreloadedPacks.js';
 
-import { CoordGrid } from '#/engine/CoordGrid.js';
 import GameMap, { changeLocCollision, changeNpcCollision, changePlayerCollision } from '#/engine/GameMap.js';
 import { Inventory } from '#/engine/Inventory.js';
 import WorldStat from '#/engine/WorldStat.js';
@@ -42,8 +42,6 @@ import ScriptRunner from '#/engine/script/ScriptRunner.js';
 import ScriptState from '#/engine/script/ScriptState.js';
 import ServerTriggerType from '#/engine/script/ServerTriggerType.js';
 import Zone from '#/engine/zone/Zone.js';
-import PlayerRenderer from '#/engine/renderer/PlayerRenderer.js';
-import NpcRenderer from '#/engine/renderer/NpcRenderer.js';
 
 import InfoProt from '#/network/rs225/server/prot/InfoProt.js';
 
@@ -57,6 +55,14 @@ import { NpcList, PlayerList } from '#/engine/entity/EntityList.js';
 import { isClientConnected, NetworkPlayer } from '#/engine/entity/NetworkPlayer.js';
 import { EntityQueueState, PlayerQueueType } from '#/engine/entity/EntityQueueRequest.js';
 import { PlayerTimerType } from '#/engine/entity/EntityTimer.js';
+import HuntModeType from '#/engine/entity/hunt/HuntModeType.js';
+import { SessionLog } from '#/engine/entity/tracking/SessionLog.js';
+import Visibility from '#/engine/entity/Visibility.js';
+import { PlayerStat } from '#/engine/entity/PlayerStat.js';
+import NpcStat from '#/engine/entity/NpcStat.js';
+import { PlayerLoading } from '#/engine/entity/PlayerLoading.js';
+import ScriptPointer from '#/engine/script/ScriptPointer.js';
+import InputTrackingEvent from './entity/tracking/InputEvent.js';
 
 import UpdateRebootTimer from '#/network/server/model/UpdateRebootTimer.js';
 import UpdateFriendList from '#/network/server/model/UpdateFriendList.js';
@@ -65,13 +71,20 @@ import MessagePrivate from '#/network/server/model/MessagePrivate.js';
 
 import ClientSocket from '#/server/ClientSocket.js';
 import { FriendsServerOpcodes } from '#/server/friend/FriendServer.js';
+import LoggerEventType from '#/server/logger/LoggerEventType.js';
+import { type GenericLoginThreadResponse, isPlayerLoginResponse, isPlayerLogoutResponse } from '#/server/login/index.d.js';
+import { FriendThreadMessage } from '#/server/friend/FriendThread.js';
 
 import Packet from '#/io/Packet.js';
+import Isaac from '#/io/Isaac.js';
 
 import Environment from '#/util/Environment.js';
 import { printDebug, printError, printInfo } from '#/util/Logger.js';
 import { createWorker } from '#/util/WorkerFactory.js';
-import HuntModeType from '#/engine/entity/hunt/HuntModeType.js';
+import WalkTriggerSetting from '#/util/WalkTriggerSetting.js';
+import LinkList from '#/util/LinkList.js';
+import { fromBase37, toBase37, toSafeName } from '#/util/JString.js';
+
 import {
     trackCycleBandwidthInBytes,
     trackCycleBandwidthOutBytes,
@@ -87,19 +100,8 @@ import {
     trackNpcCount,
     trackPlayerCount
 } from '#/server/Metrics.js';
-import WalkTriggerSetting from '#/util/WalkTriggerSetting.js';
-import LinkList from '#/util/LinkList.js';
-import { fromBase37, toBase37, toSafeName } from '#/util/JString.js';
-import { PlayerLoading } from '#/engine/entity/PlayerLoading.js';
-import ScriptPointer from '#/engine/script/ScriptPointer.js';
-import Isaac from '#/io/Isaac.js';
-import LoggerEventType from '#/server/logger/LoggerEventType.js';
-import ScriptVarType from '#/cache/config/ScriptVarType.js';
-import InputTrackingEvent from './entity/tracking/InputEvent.js';
-import { SessionLog } from '#/engine/entity/tracking/SessionLog.js';
-import { type GenericLoginThreadResponse, isPlayerLoginResponse, isPlayerLogoutResponse } from '#/server/login/index.d.js';
-import { FriendThreadMessage } from '#/server/friend/FriendThread.js';
-import Visibility from '#/engine/entity/Visibility.js';
+
+import * as rsbuf from '@2004scape/rsbuf/dist/rsbuf.js';
 
 const priv = forge.pki.privateKeyFromPem(Environment.STANDALONE_BUNDLE ? await (await fetch('data/config/private.pem')).text() : fs.readFileSync('data/config/private.pem', 'ascii'));
 
@@ -139,14 +141,10 @@ class World {
     readonly newPlayers: Set<Player>; // players joining at the end of this tick
     readonly players: PlayerList;
     readonly npcs: NpcList;
-    readonly playerGrid: Map<number, Player[]>; // store player coords for player_info for fast lookup
 
     // zones
     readonly zonesTracking: Map<number, Set<Zone>>;
     readonly queue: LinkList<EntityQueueState>;
-
-    readonly playerRenderer: PlayerRenderer;
-    readonly npcRenderer: NpcRenderer;
 
     // debug data
     readonly lastCycleStats: number[];
@@ -169,11 +167,8 @@ class World {
         this.newPlayers = new Set();
         this.players = new PlayerList(World.PLAYERS);
         this.npcs = new NpcList(World.NPCS);
-        this.playerGrid = new Map();
         this.zonesTracking = new Map();
         this.queue = new LinkList();
-        this.playerRenderer = new PlayerRenderer();
-        this.npcRenderer = new NpcRenderer();
         this.lastCycleStats = new Array(12).fill(0);
         this.cycleStats = new Array(12).fill(0);
 
@@ -969,6 +964,7 @@ class World {
                         other.client.send(Uint8Array.from([15]));
                     }
 
+                    rsbuf.cleanupPlayerBuildArea(other.pid);
                     other.onReconnect();
 
                     this.friendThread.postMessage({
@@ -1044,6 +1040,15 @@ class World {
             player.tele = true;
             player.moveClickRequest = false;
 
+            if (player.username.startsWith('bot')) {
+                const x = Math.floor(Math.random() * 128) + 3200;
+                const z = Math.floor(Math.random() * 128) + 3200;
+                player.x = x;
+                player.z = z;
+            }
+
+            rsbuf.addPlayer(pid);
+
             this.gameMap.getZone(player.x, player.z, player.level).enter(player);
             player.onLogin();
 
@@ -1082,22 +1087,84 @@ class World {
         for (const player of this.players) {
             player.convertMovementDir();
             player.reorient();
-
-            const grid = this.playerGrid;
-            const coord = CoordGrid.packCoord(player.level, player.x, player.z);
-            const players = grid.get(coord) ?? [];
-            players.push(player);
-            if (!grid.has(coord)) {
-                grid.set(coord, players);
-            }
-
-            this.playerRenderer.computeInfo(player);
+            player.rebuildNormal();
+            rsbuf.computePlayer(
+                player.x,
+                player.level,
+                player.z,
+                player.originX,
+                player.originZ,
+                player.pid,
+                player.tele,
+                player.jump,
+                player.runDir,
+                player.walkDir,
+                player.visibility,
+                player.lifecycle,
+                player.lifecycleTick,
+                player.masks,
+                player.generateAppearance(),
+                player.lastAppearance,
+                player.faceEntity,
+                player.faceX,
+                player.faceZ,
+                player.orientationX,
+                player.orientationZ,
+                player.damageTaken,
+                player.damageType,
+                player.levels[PlayerStat.HITPOINTS],
+                player.baseLevels[PlayerStat.HITPOINTS],
+                player.animId,
+                player.animDelay,
+                player.chat,
+                player.message,
+                player.messageColor ?? -1,
+                player.messageEffect ?? -1,
+                player.messageType ?? 0,
+                player.graphicId,
+                player.graphicHeight,
+                player.graphicDelay,
+                player.exactStartX,
+                player.exactStartZ,
+                player.exactEndX,
+                player.exactEndZ,
+                player.exactMoveStart,
+                player.exactMoveEnd,
+                player.exactMoveDirection,
+            );
         }
 
         for (const npc of this.npcs) {
             npc.convertMovementDir();
             npc.reorient();
-            this.npcRenderer.computeInfo(npc);
+            rsbuf.computeNpc(
+                npc.x,
+                npc.level,
+                npc.z,
+                npc.nid,
+                npc.type,
+                npc.tele,
+                npc.runDir,
+                npc.walkDir,
+                npc.lifecycle,
+                npc.lifecycleTick,
+                npc.masks,
+                npc.faceEntity,
+                npc.faceX,
+                npc.faceZ,
+                npc.orientationX,
+                npc.orientationZ,
+                npc.damageTaken,
+                npc.damageType,
+                npc.levels[NpcStat.HITPOINTS],
+                npc.baseLevels[NpcStat.HITPOINTS],
+                npc.animId,
+                npc.animDelay,
+                npc.chat,
+                npc.graphicId,
+                npc.graphicHeight,
+                npc.graphicDelay,
+            );
         }
     }
 
@@ -1123,9 +1190,9 @@ class World {
                 // - map update
                 player.updateMap();
                 // - player info
-                player.updatePlayers(this.playerRenderer);
+                player.updatePlayers();
                 // - npc info
-                player.updateNpcs(this.npcRenderer);
+                player.updateNpcs();
                 // - zone updates
                 player.updateZones();
                 // - inv changes
@@ -1161,7 +1228,6 @@ class World {
         this.zonesTracking.delete(tick);
 
         // - reset players
-        this.playerRenderer.removeTemporary();
         for (const player of this.players) {
             player.resetEntity(false);
 
@@ -1176,7 +1242,6 @@ class World {
         }
 
         // - reset npcs
-        this.npcRenderer.removeTemporary();
         for (const npc of this.npcs) {
             if (!npc.checkLifeCycle(tick)) {
                 continue;
@@ -1223,7 +1288,7 @@ class World {
             }
         }
 
-        this.playerGrid.clear();
+        rsbuf.cleanup();
 
         this.cycleStats[WorldStat.CLEANUP] = Date.now() - start;
     }
@@ -1304,6 +1369,7 @@ class World {
 
     addNpc(npc: Npc, duration: number, firstSpawn: boolean = true): void {
         if (firstSpawn) {
+            rsbuf.addNpc(npc.nid, npc.type);
             this.npcs.set(npc.nid, npc);
         }
 
@@ -1346,9 +1412,8 @@ class World {
                 break;
         }
 
-        this.npcRenderer.removePermanent(npc.nid);
-
         if (npc.lifecycle === EntityLifeCycle.DESPAWN) {
+            rsbuf.removeNpc(npc.nid);
             this.npcs.remove(npc.nid);
             npc.cleanup();
         } else if (npc.lifecycle === EntityLifeCycle.RESPAWN) {
@@ -1563,7 +1628,7 @@ class World {
             player.client.close();
         }
 
-        this.playerRenderer.removePermanent(player.pid);
+        rsbuf.removePlayer(player.pid);
         this.gameMap.getZone(player.x, player.z, player.level).leave(player);
         this.players.remove(player.pid);
         changeNpcCollision(player.width, player.x, player.z, player.level, false);
