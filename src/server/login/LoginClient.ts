@@ -1,6 +1,4 @@
 import InternalClient from '#/server/InternalClient.js';
-import { LoginResponse } from '#/server/login/index.js';
-
 import Environment from '#/util/Environment.js';
 
 export class LoginClient extends InternalClient {
@@ -19,18 +17,20 @@ export class LoginClient extends InternalClient {
             return;
         }
 
-        this.ws.send(JSON.stringify({
-            type: 'world_startup',
-            nodeId: this.nodeId,
-            nodeTime: Date.now()
-        }));
+        this.ws.send(
+            JSON.stringify({
+                type: 'world_startup',
+                nodeId: this.nodeId,
+                nodeTime: Date.now()
+            })
+        );
     }
 
     public async playerLogin(username: string, password: string, uid: number, socket: string, remoteAddress: string, reconnecting: boolean, hasSave: boolean) {
         await this.connect();
 
         if (!this.ws || !this.wsr || !this.wsr.checkIfWsLive()) {
-            return { reply: -1, account_id: -1, save: null, muted_until: null, members: false};
+            return { reply: -1, account_id: -1, save: null, muted_until: null, members: false };
         }
 
         const reply = await this.wsr.fetchSync({
@@ -51,15 +51,16 @@ export class LoginClient extends InternalClient {
             return { reply: -1, account_id: -1, save: null, muted_until: null, members: false };
         }
 
-        const { response, account_id, staffmodlevel, save, muted_until, members } = reply.result;
-
+        const { response, account_id, staffmodlevel, save, muted_until, members, messageCount } = reply.result;
         return {
             reply: response,
             account_id,
             staffmodlevel,
             save: save ? Buffer.from(save, 'base64') : null,
             muted_until,
-            members };
+            members,
+            messageCount
+        };
     }
 
     // returns true if the login server acknowledged the logout
@@ -94,14 +95,16 @@ export class LoginClient extends InternalClient {
             return;
         }
 
-        this.ws.send(JSON.stringify({
-            type: 'player_autosave',
-            nodeId: this.nodeId,
-            nodeTime: Date.now(),
-            profile: Environment.NODE_PROFILE,
-            username,
-            save: Buffer.from(save).toString('base64')
-        }));
+        this.ws.send(
+            JSON.stringify({
+                type: 'player_autosave',
+                nodeId: this.nodeId,
+                nodeTime: Date.now(),
+                profile: Environment.NODE_PROFILE,
+                username,
+                save: Buffer.from(save).toString('base64')
+            })
+        );
     }
 
     // in case the player is stuck logged-in
@@ -112,13 +115,15 @@ export class LoginClient extends InternalClient {
             return;
         }
 
-        this.ws.send(JSON.stringify({
-            type: 'player_force_logout',
-            nodeId: this.nodeId,
-            nodeTime: Date.now(),
-            profile: Environment.NODE_PROFILE,
-            username
-        }));
+        this.ws.send(
+            JSON.stringify({
+                type: 'player_force_logout',
+                nodeId: this.nodeId,
+                nodeTime: Date.now(),
+                profile: Environment.NODE_PROFILE,
+                username
+            })
+        );
     }
 
     public async playerBan(staff: string, username: string, until: Date) {
@@ -128,14 +133,16 @@ export class LoginClient extends InternalClient {
             return;
         }
 
-        this.ws.send(JSON.stringify({
-            type: 'player_ban',
-            nodeId: this.nodeId,
-            nodeTime: Date.now(),
-            staff,
-            username,
-            until
-        }));
+        this.ws.send(
+            JSON.stringify({
+                type: 'player_ban',
+                nodeId: this.nodeId,
+                nodeTime: Date.now(),
+                staff,
+                username,
+                until
+            })
+        );
     }
 
     public async playerMute(staff: string, username: string, until: Date) {
@@ -145,13 +152,15 @@ export class LoginClient extends InternalClient {
             return;
         }
 
-        this.ws.send(JSON.stringify({
-            type: 'player_mute',
-            nodeId: this.nodeId,
-            nodeTime: Date.now(),
-            staff,
-            username,
-            until
-        }));
+        this.ws.send(
+            JSON.stringify({
+                type: 'player_mute',
+                nodeId: this.nodeId,
+                nodeTime: Date.now(),
+                staff,
+                username,
+                until
+            })
+        );
     }
 }

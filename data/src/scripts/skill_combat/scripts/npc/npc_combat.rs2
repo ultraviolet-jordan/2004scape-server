@@ -147,7 +147,7 @@ if(npc_type = gorad & (~obj_gettotal(ogre_tooth) > 0 | getbit_range(%itwatchtowe
     return(false);
 }
 
-if(npc_type = npc_830) {
+if(npc_type = mercenary_captain) {
     return (~mercenary_capt_attack(false));
 } 
 
@@ -156,9 +156,30 @@ if(npc_type = fire_warrior_of_lesarkus & (inv_total(worn, ice_arrow) = 0 | %dama
     return (false);
 }
 
-if(npc_type = npc_374 & %damagetype <= ^crush_style & npc_range(coord) <= 1) {
+if(npc_type = combat_training_camp_ogre & %damagetype <= ^crush_style & npc_range(coord) <= 1) {
     mes("These ogres are for ranged combat only.");
     return (false);
+}
+
+if (npc_type = delrith) {
+    if (%demon_progress >= ^demon_complete) {
+        mes("You've already done that quest.");
+        return(false);
+    }
+    if (inv_getobj(worn, 3) ! silverlight) {
+        if (inv_total(inv, silverlight) > 0) {
+            mes("Maybe I'd better wield silverlight first.");
+            return(false);
+        }
+        mes("I'd rather not. He looks scary");
+        return(false);
+    }
+}
+if (npc_type = count_draynor) {
+    if (%vampire_progress = ^vampire_complete) {
+        mes("You've done enough vampire slaying.");
+        return(false);
+    }
 }
 
 if (npc_hasop(2) = true) {
@@ -199,7 +220,7 @@ if(npc_type = gorad & (~obj_gettotal(ogre_tooth) > 0 | getbit_range(%itwatchtowe
     }
     return(false);
 }
-if(npc_type = npc_830) {
+if(npc_type = mercenary_captain) {
     return (~mercenary_capt_attack(true));
 } 
 if(npc_type = fire_warrior_of_lesarkus) { // can't attack with magic
@@ -229,7 +250,26 @@ if (%vampire_progress = ^vampire_complete & npc_type = count_draynor) {
     mes("You've done enough vampire slaying.");
     return(false);
 }
-
+if (npc_type = delrith) {
+    if (%demon_progress >= ^demon_complete) {
+        mes("You've already done that quest.");
+        return(false);
+    }
+    if (inv_getobj(worn, 3) ! silverlight) {
+        if (inv_total(inv, silverlight) > 0) {
+            mes("Maybe I'd better wield silverlight first.");
+            return(false);
+        }
+        mes("I'd rather not. He looks scary");
+        return(false);
+    }
+}
+if (npc_type = count_draynor) {
+    if (%vampire_progress = ^vampire_complete) {
+        mes("You've done enough vampire slaying.");
+        return(false);
+    }
+}
 if (npc_hasop(2) = true) {
     return (true);
 }
@@ -279,6 +319,7 @@ if (inv_getobj(worn, ^wearpos_ring) = ring_of_recoil & npc_finduid(%aggressive_n
     // https://oldschool.runescape.wiki/w/Update:Clue_Scroll_Step_Counter
     // - "Recoil damage will now always target the entity that caused the initial damage, rather than the most recent entity to deal damage."
     def_int $recoil_damage = add(scale(10, 100, $damage), 1);
+    $recoil_damage = min($recoil_damage, npc_stat(hitpoints));
     npc_queue(2, $recoil_damage, 0);
     ~ring_of_recoil_lose_charge($recoil_damage);
 }
