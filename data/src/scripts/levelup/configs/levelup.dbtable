@@ -10,3 +10,5 @@ column=levelup_jingle_millis,int
 column=unlocks_jingle,string
 column=unlocks_jingle_millis,int
 column=unlocks_levels,enum
+column=animation,seq
+column=icon,component

@@ -5054,7 +5054,7 @@ frame11=anim_2831
 frame12=anim_2834
 delay12=500
 
-[seq_475]
+[lit_fire]
 replayoff=5
 frame1=anim_2736
 frame2=anim_2737

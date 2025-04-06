@@ -52,6 +52,11 @@ if ($has_unlocks = false) {
 }
 midi_jingle($jingle, $jingle_millis);
 // the level up dialogue box
+def_seq $animation = db_getfield($unlock_row, levelup:animation, 0);
+def_component $icon = db_getfield($unlock_row, levelup:icon, 0);
+if ($animation ! null & $icon ! null) {
+    if_setanim($icon, $animation);
+}
 if_settext(db_getfield($unlock_row, levelup:title, 0), "@dbl@<$message>");
 if_settext(db_getfield($unlock_row, levelup:body, 0), "<db_getfield($unlock_row, levelup:level_prefix, 0)> <tostring($level)>.");
 if_openchat(db_getfield($unlock_row, levelup:interface, 0));

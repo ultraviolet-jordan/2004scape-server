@@ -237,6 +237,8 @@ data=levelup_jingle_millis,^advance_firemaking_millis
 data=unlocks_jingle,^advance_firemaking_2_jingle
 data=unlocks_jingle_millis,^advance_firemaking_2_millis
 data=unlocks_levels,levelup_unlocks_firemaking
+data=animation,lit_fire
+data=icon,levelup_firemaking:icon
 
 [levelup_woodcutting]
 table=levelup

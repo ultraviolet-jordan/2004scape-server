@@ -3659,7 +3659,7 @@ model=model_loc_713
 name=Fire remains
 desc=A recently extinguished fire.
 model=model_loc_714
-anim=seq_475
+anim=lit_fire
 hasalpha=yes
 
 [loc_715]
@@ -14652,7 +14652,7 @@ op3=hidden
 name=Fire
 desc=Hot!
 model=model_loc_2732
-anim=seq_475
+anim=lit_fire
 hasalpha=yes
 blockwalk=no
 blockrange=no
